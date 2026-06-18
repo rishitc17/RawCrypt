@@ -1,0 +1,9 @@
+- Shift - DONE
+- Substitution - DONE
+- Vigenere - DONE
+- Rail Fence - DONE
+- Permutation - DONE
+- Stream w/ LFSR + XOR - DONE
+- Toy Feistel
+- Toy AES
+- Toy RSA
