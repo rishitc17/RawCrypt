@@ -355,6 +355,28 @@ window.addEventListener('pagehide', async () => {
 // ---------------------------------------------------------------------------
 
 async function simStart() {
+    // If the sim hasn't started yet (tick == 0) and the sliders have
+    // been changed, apply them first via a reset, then start.
+    if (state.stats && state.stats.tick === 0) {
+        const cfg = {
+            num_communicators: parseInt(document.getElementById('num-comms').value),
+            num_attackers: parseInt(document.getElementById('num-atks').value),
+            attacker_temperature: parseFloat(document.getElementById('atk-temp').value),
+            communicator_temperature: parseFloat(document.getElementById('comm-temp').value),
+            tick_interval: 1.0 / parseFloat(document.getElementById('tick-rate').value),
+            seed: parseInt(document.getElementById('seed').value) || null,
+        };
+        // Only reset if any setting differs from the current config.
+        const changed = JSON.stringify(cfg) !== JSON.stringify({
+            ...state.config,
+            tick_interval: state.config.tick_interval,
+            seed: state.config.seed || null,
+        });
+        if (changed) {
+            await apiPost('/api/sim/reset', cfg);
+            state.config = {...state.config, ...cfg};
+        }
+    }
     await apiPost('/api/sim/start', {});
     state.running = true;
     updateControlUI();
@@ -378,12 +400,13 @@ async function simReset() {
     await apiPost('/api/sim/reset', cfg);
     state.config = {...state.config, ...cfg};
     state.events = [];
-    state.agents = [];
     state.animations = [];
     state.pendingAnimations = [];
+    // Don't wipe state.agents here — the next snapshot will replace them.
     renderRoster();
     renderLog();
     updateStatsPanels();
+    updateControlUI();
 }
 
 async function pauseOnChange() {
@@ -416,6 +439,66 @@ function updateControlUI() {
     document.getElementById('atk-temp-val').textContent = state.config.attacker_temperature.toFixed(2);
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
     document.getElementById('tick-rate-val').textContent = rate.toFixed(1) + '/s';
+
+    // Lock reset-required sliders when the sim has run any ticks.
+    const lockResetSliders = (state.stats && state.stats.tick > 0);
+    ['num-comms', 'num-atks', 'seed'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = lockResetSliders;
+            el.style.opacity = lockResetSliders ? '0.5' : '1';
+            el.style.cursor = lockResetSliders ? 'not-allowed' : '';
+        }
+    });
+    // Show/hide the "reset to apply" hint.
+    const resetHint = document.getElementById('reset-hint');
+    if (resetHint) {
+        resetHint.style.display = lockResetSliders ? '' : 'none';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Preview agents when sliders change at tick 0.
+// ---------------------------------------------------------------------------
+
+async function previewAgents() {
+    // Only preview when paused and tick == 0 — otherwise the real sim
+    // state is the source of truth.
+    if (state.running) return;
+    if (state.stats && state.stats.tick > 0) return;
+
+    const numComms = parseInt(document.getElementById('num-comms').value);
+    const numAtks = parseInt(document.getElementById('num-atks').value);
+
+    // Optimistically rebuild the agent list so the canvas updates immediately.
+    // We don't have real names yet (the server picks them on reset), so we
+    // just clear the canvas and show a placeholder.
+    const previewAgents = [];
+    for (let i = 0; i < numComms; i++) {
+        previewAgents.push({
+            name: `Comm ${i+1}`, role: 'communicator', idx: i,
+            x: 0, y: 0, color: commColor(i),
+            sent: 0, broken: 0, topActions: [],
+        });
+    }
+    for (let i = 0; i < numAtks; i++) {
+        previewAgents.push({
+            name: `Hacker ${i+1}`, role: 'attacker', idx: i,
+            x: 0, y: 0, color: atkColor(i),
+            attempts: 0, success: 0, topActions: [],
+        });
+    }
+    // Only replace if counts actually changed (don't wipe real agents).
+    if (previewAgents.length !== state.agents.length ||
+        previewAgents.filter(a => a.role === 'communicator').length !==
+        state.agents.filter(a => a.role === 'communicator').length) {
+        state.agents = previewAgents;
+        resetColorCache();
+        state.agents.forEach(a => { colorForAgent(a.name, a.role, a.idx); });
+        layoutAgents();
+        // Render a placeholder roster.
+        renderRoster();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -431,7 +514,7 @@ function updateStatsPanels() {
     document.getElementById('stat-survival').textContent = s.summary.overall_survival_pct.toFixed(0) + '%';
     document.getElementById('stat-ciphers').textContent = s.summary.distinct_ciphers_used;
 
-    // Cipher usage — visual bars
+    // Cipher usage — stacked bars (Sent + Broken)
     const cipherRows = (s.cipher_usage || [])
         .map(c => ({...c, usage_pct: s.summary.total_messages ? 100 * c.used / s.summary.total_messages : 0,
                      break_pct: c.used ? 100 * c.broken / c.used : 0}))
@@ -448,11 +531,16 @@ function updateStatsPanels() {
             return `
                 <div class="usage-row tooltip">
                     <div class="name">${cipherName(c.name)}</div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width:${c.usage_pct}%;background:${color}"></div>
-                        <div class="bar-fill secondary" style="width:${c.break_pct}%;background:${breakColor}"></div>
+                    <div class="bars">
+                        <div class="bar-label"><span>Sent</span><span class="right">${c.usage_pct.toFixed(0)}% of traffic</span></div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width:${c.usage_pct}%;background:${color}"></div>
+                        </div>
+                        <div class="bar-label" style="margin-top:4px"><span>Broken</span><span class="right">${c.break_pct.toFixed(0)}% of sent</span></div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width:${c.break_pct}%;background:${breakColor}"></div>
+                        </div>
                     </div>
-                    <div class="pct">${c.usage_pct.toFixed(0)}%</div>
                     <span class="tooltip-text">
                         <div class="row"><span>Sent</span><b>${c.used}</b></div>
                         <div class="row"><span>Broken</span><b>${c.broken}</b></div>
@@ -464,7 +552,7 @@ function updateStatsPanels() {
         }).join('');
     }
 
-    // Attack usage — visual bars
+    // Attack usage — single bar (Success rate)
     const totalAtks = (s.attack_usage || []).reduce((sum, a) => sum + a.used, 0);
     const atkRows = (s.attack_usage || [])
         .map(a => ({...a, usage_pct: totalAtks ? 100 * a.used / totalAtks : 0,
@@ -481,10 +569,12 @@ function updateStatsPanels() {
             return `
                 <div class="usage-row tooltip">
                     <div class="name">${attackName(a.name)}</div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width:${a.succ_pct}%;background:${color}"></div>
+                    <div class="bars">
+                        <div class="bar-label"><span>Success rate</span><span class="right">${a.succ_pct.toFixed(0)}% of attempts</span></div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width:${a.succ_pct}%;background:${color}"></div>
+                        </div>
                     </div>
-                    <div class="pct">${a.usage_pct.toFixed(0)}%</div>
                     <span class="tooltip-text">
                         <div class="row"><span>Attempts</span><b>${a.used}</b></div>
                         <div class="row"><span>Successes</span><b>${a.success}</b></div>
@@ -819,20 +909,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-pause').onclick = simPause;
     document.getElementById('btn-reset').onclick = simReset;
 
-    ['num-comms', 'num-atks', 'seed'].forEach(id => {
-        document.getElementById(id).addEventListener('change', pauseOnChange);
+    // Reset-required sliders: lock at tick > 0, preview agents at tick 0.
+    ['num-comms', 'num-atks'].forEach(id => {
         document.getElementById(id).addEventListener('input', e => {
             if (id === 'num-comms') document.getElementById('num-comms-val').textContent = e.target.value;
             if (id === 'num-atks') document.getElementById('num-atks-val').textContent = e.target.value;
+            previewAgents();
         });
     });
 
+    // Live-preview the slider values for tunable params; apply on change.
     document.getElementById('atk-temp').addEventListener('input', e => {
         document.getElementById('atk-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
     });
     document.getElementById('atk-temp').addEventListener('change', async e => {
         await pauseOnChange();
         await apiPost('/api/sim/tune', {attacker_temperature: parseFloat(e.target.value)});
+        state.config.attacker_temperature = parseFloat(e.target.value);
     });
     document.getElementById('comm-temp').addEventListener('input', e => {
         document.getElementById('comm-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
@@ -840,6 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('comm-temp').addEventListener('change', async e => {
         await pauseOnChange();
         await apiPost('/api/sim/tune', {communicator_temperature: parseFloat(e.target.value)});
+        state.config.communicator_temperature = parseFloat(e.target.value);
     });
     document.getElementById('tick-rate').addEventListener('input', e => {
         document.getElementById('tick-rate-val').textContent = parseFloat(e.target.value).toFixed(1) + '/s';
@@ -848,6 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await pauseOnChange();
         const interval = 1.0 / parseFloat(e.target.value);
         await apiPost('/api/sim/tune', {tick_interval: interval});
+        state.config.tick_interval = interval;
     });
 
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);

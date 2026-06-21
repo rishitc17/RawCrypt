@@ -20,9 +20,11 @@ function startMatrixRain(canvas) {
     const fontSize = 16;
     let columns = Math.floor(canvas.offsetWidth / fontSize);
     let drops = new Array(columns).fill(0).map(() => Math.random() * -100);
-    // Slow fall: drops advance every N frames instead of every frame.
-    const FRAMES_PER_STEP = 4;
+    // Constant slow speed: advance drops every 6 frames, capped.
+    const FRAMES_PER_STEP = 6;
     let frameCount = 0;
+    // Cap the maximum drop speed to prevent hyperliminal acceleration.
+    const MAX_DROP_SPEED = 0.4;
 
     function recomputeColumns() {
         columns = Math.floor(canvas.offsetWidth / fontSize);
@@ -47,13 +49,13 @@ function startMatrixRain(canvas) {
 
         // Translucent fill for the trailing fade effect — slower trails.
         const isDark = currentThemeIsDark();
-        ctx.fillStyle = isDark ? 'rgba(14, 13, 10, 0.04)' : 'rgba(244, 239, 228, 0.04)';
+        ctx.fillStyle = isDark ? 'rgba(15, 14, 12, 0.03)' : 'rgba(250, 246, 239, 0.03)';
         ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
 
-        const accent = cssVar('--accent') || (isDark ? '#c4ff42' : '#d8541b');
+        const accent = cssVar('--accent') || (isDark ? '#a3e635' : '#e8702a');
         ctx.font = `${fontSize}px 'IBM Plex Mono', monospace`;
 
-        // Only advance drops every N frames — slows the rain.
+        // Only advance drops every N frames — constant slow speed.
         const advance = (frameCount % FRAMES_PER_STEP === 0);
         frameCount++;
 
@@ -70,7 +72,8 @@ function startMatrixRain(canvas) {
                 if (y > canvas.offsetHeight && Math.random() > 0.985) {
                     drops[i] = 0;
                 }
-                drops[i] += 0.5;
+                // Capped constant speed — no acceleration.
+                drops[i] += MAX_DROP_SPEED;
             }
         }
         requestAnimationFrame(draw);

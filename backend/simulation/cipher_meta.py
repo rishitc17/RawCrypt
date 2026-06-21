@@ -240,16 +240,46 @@ def _aes_decrypt(ct: str, key: str) -> str:
     return _aes_mod.AES().decrypt(ct, key)
 
 
-# A single shared RSA instance — p, q, e are fixed by the cipher spec.
+# A shared RSA instance — can be reconfigured per-simulation via
+# `configure_rsa(p, q, e)`. Defaults follow CIPHERS.md (p=11, q=13, e=7).
 _RSA_INSTANCE = _rsa_mod.RSA()
 
 
-def _rsa_encrypt(pt: str, key: None) -> str:
-    return _RSA_INSTANCE.encrypt(pt)
+def configure_rsa(p: int, q: int, e: int):
+    """Reconfigure the shared RSA instance with new parameters.
+
+    Called by the simulation engine when it resets, so each simulation
+    can use freshly-generated random primes (instead of the fixed
+    p=11, q=13, e=7 from the spec).
+    """
+    global _RSA_INSTANCE
+    _RSA_INSTANCE = _rsa_mod.RSA(p=p, q=q, e=e)
 
 
-def _rsa_decrypt(ct: str, key: None) -> str:
-    return _RSA_INSTANCE.decrypt(ct)
+def get_rsa_instance():
+    """Return the current shared RSA instance."""
+    return _RSA_INSTANCE
+
+
+def _rsa_encrypt(pt: str, key) -> str:
+    # `key` can be None (use the shared instance) or a (p, q, e) tuple
+    # to use a one-off instance with custom params.
+    if key is None:
+        return _RSA_INSTANCE.encrypt(pt)
+    p, q, e = key
+    return _rsa_mod.RSA(p=p, q=q, e=e).encrypt(pt)
+
+
+def _rsa_decrypt(ct: str, key) -> str:
+    if key is None:
+        return _RSA_INSTANCE.decrypt(ct)
+    p, q, e = key
+    return _rsa_mod.RSA(p=p, q=q, e=e).decrypt(ct)
+
+
+def _rsa_key_gen():
+    """No key — the RSA instance's parameters are set at sim reset time."""
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +387,7 @@ CIPHER_REGISTRY: dict[str, CipherMeta] = {
         encrypt=_rsa_encrypt,
         decrypt=_rsa_decrypt,
         enumerate_keys=None,
-        description="Toy RSA with 7-bit modulus n=143",
+        description="Toy RSA — parameters p, q, e are configurable",
     ),
 }
 
