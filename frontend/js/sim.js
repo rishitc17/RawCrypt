@@ -1,6 +1,9 @@
 // Simulation page logic.
-// Connects to the WebSocket, renders the agent canvas, drives the
-// controls, log panel, phone modal, and attacker panel.
+//
+// Connects to the WebSocket, renders the agent canvas, drives the controls,
+// log panel, phone modal, and attacker panel. Real-time updates flow in
+// via the WS; the phone and attacker modals refresh themselves on every
+// tick while open.
 
 // ---------------------------------------------------------------------------
 // Global state.
@@ -16,15 +19,14 @@ const state = {
         communicator_temperature: 1.2,
         tick_interval: 0.9,
     },
-    agents: [],         // [{name, role, idx, x, y, color}]
-    events: [],         // recent events
-    stats: null,        // latest stats payload
-    // Visual ephemeral state: animations currently in flight.
-    animations: [],     // {kind, startTime, duration, from, to, color, ...}
-    // Filters for log panel.
-    filters: {
-        agent: '', cipher: '', attack: '', outcome: 'all',
-    },
+    agents: [],
+    events: [],
+    stats: null,
+    animations: [],
+    pendingAnimations: [],   // queued animations waiting for previous ones to finish
+    filters: { agent: '', cipher: '', attack: '', outcome: 'all' },
+    // Track currently-open modal so we can refresh it on tick.
+    openModal: null,        // {type: 'phone'|'attacker', name: string, contact?: string}
 };
 
 // ---------------------------------------------------------------------------
@@ -47,7 +49,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 
 // ---------------------------------------------------------------------------
-// Agent layout — communicators in an outer circle, attackers in inner cluster.
+// Agent layout.
 // ---------------------------------------------------------------------------
 
 function layoutAgents() {
@@ -63,16 +65,15 @@ function layoutAgents() {
         a.y = cy + Math.sin(angle) * outerR;
     });
 
-    const innerR = Math.min(w, h) * 0.12;
+    const innerR = Math.min(w, h) * 0.13;
     atks.forEach((a, i) => {
-        const angle = (i / atks.length) * Math.PI * 2 - Math.PI / 2;
+        const angle = (i / Math.max(atks.length, 1)) * Math.PI * 2 - Math.PI / 2;
         a.x = cx + Math.cos(angle) * innerR;
         a.y = cy + Math.sin(angle) * innerR;
     });
 }
 
 function rebuildAgents(stats) {
-    // Build the agent list from stats, preserving positions for agents that already existed.
     const oldByName = {};
     state.agents.forEach(a => { oldByName[a.name] = a; });
     const next = [];
@@ -101,21 +102,27 @@ function rebuildAgents(stats) {
     });
     state.agents = next;
     layoutAgents();
+    resetColorCache();
+    state.agents.forEach(a => { colorForAgent(a.name, a.role, a.idx); });
     renderRoster();
+    updateAgentFilter();
 }
 
 // ---------------------------------------------------------------------------
-// Canvas rendering — runs every frame via requestAnimationFrame.
+// Rendering.
 // ---------------------------------------------------------------------------
 
-const AGENT_RADIUS = 28;
+const AGENT_RADIUS = 26;
 
 function render() {
     const w = canvas.offsetWidth, h = canvas.offsetHeight;
     ctx.clearRect(0, 0, w, h);
 
-    // Draw connections (arrows + attack lines) beneath the agents.
     const now = performance.now();
+    // Promote queued animations if there's room (max 8 concurrent).
+    while (state.pendingAnimations.length > 0 && state.animations.length < 8) {
+        state.animations.push(state.pendingAnimations.shift());
+    }
     state.animations = state.animations.filter(anim => {
         const elapsed = now - anim.startTime;
         if (elapsed > anim.duration) return false;
@@ -123,79 +130,81 @@ function render() {
         return true;
     });
 
-    // Draw agents on top.
     state.agents.forEach(a => drawAgent(a));
-
     requestAnimationFrame(render);
 }
 
 function drawAgent(a) {
+    // Pulse highlight if any animation targets this agent.
+    const now = performance.now();
+    const pulse = state.animations.some(anim =>
+        (anim.fromName === a.name || anim.toName === a.name) &&
+        (now - anim.startTime) < 400
+    );
+
     // Outer ring
     ctx.beginPath();
     ctx.arc(a.x, a.y, AGENT_RADIUS, 0, Math.PI * 2);
     ctx.fillStyle = a.color;
     ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = currentThemeIsDark() ? '#1c1c1c' : '#ffffff';
+    ctx.lineWidth = pulse ? 4 : 3;
+    ctx.strokeStyle = pulse ? cssVar('--accent') : cssVar('--bg-panel');
     ctx.stroke();
 
     // Initials
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.font = 'bold 14px "IBM Plex Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(initials(a.name), a.x, a.y);
 
     // Name label below
     ctx.fillStyle = cssVar('--text');
-    ctx.font = '600 11px Inter, sans-serif';
+    ctx.font = '600 11px "IBM Plex Mono", monospace';
     ctx.fillText(a.name, a.x, a.y + AGENT_RADIUS + 14);
 
     // Role icon above
-    ctx.font = '12px "Font Awesome 6 Free"';
-    ctx.fillStyle = a.role === 'attacker' ? '#ff4d4d' : cssVar('--text-muted');
-    // FontAwesome glyphs are awkward to draw on canvas — use a small text label instead.
-    ctx.font = '10px Inter, sans-serif';
-    ctx.fillText(a.role === 'attacker' ? '☠ ATTACKER' : '✉ COMM', a.x, a.y - AGENT_RADIUS - 10);
+    ctx.font = '9px "IBM Plex Mono", monospace';
+    ctx.fillStyle = a.role === 'attacker' ? cssVar('--danger') : cssVar('--text-muted');
+    ctx.fillText(a.role === 'attacker' ? '▲ HACKER' : '◆ SPY', a.x, a.y - AGENT_RADIUS - 8);
 }
 
 function drawAnimation(anim, elapsed) {
     const progress = Math.min(1, elapsed / anim.duration);
     if (anim.kind === 'send') {
-        // Animated arrow from sender to target.
         const from = anim.from, to = anim.to;
-        const cx = (from.x + to.x) / 2;
-        const cy = (from.y + to.y) / 2;
         const dx = to.x - from.x, dy = to.y - from.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        // Shorten the line so it doesn't disappear under the agent avatars.
+        if (dist < 1) return;
         const ux = dx / dist, uy = dy / dist;
         const sx = from.x + ux * (AGENT_RADIUS + 4);
         const sy = from.y + uy * (AGENT_RADIUS + 4);
         const ex = to.x - ux * (AGENT_RADIUS + 8);
         const ey = to.y - uy * (AGENT_RADIUS + 8);
 
-        // Draw the arrow line, fading out near the end.
         const alpha = 1 - Math.pow(progress, 2);
+        const hex = anim.color.replace('#', '');
+        const alphaHex = Math.floor(alpha * 255).toString(16).padStart(2, '0');
+
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.lineTo(ex, ey);
-        ctx.strokeStyle = anim.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+        ctx.strokeStyle = '#' + hex + alphaHex;
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Arrowhead at the target end.
+        // Arrowhead
         const angle = Math.atan2(dy, dx);
         ctx.beginPath();
         ctx.moveTo(ex, ey);
         ctx.lineTo(ex - 10 * Math.cos(angle - 0.4), ey - 10 * Math.sin(angle - 0.4));
         ctx.lineTo(ex - 10 * Math.cos(angle + 0.4), ey - 10 * Math.sin(angle + 0.4));
         ctx.closePath();
-        ctx.fillStyle = anim.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+        ctx.fillStyle = '#' + hex + alphaHex;
         ctx.fill();
 
-        // Small moving dot to show direction.
-        const t = Math.min(1, progress * 1.5);
+        // Moving dot
+        const t = Math.min(1, progress * 1.4);
         const px = sx + (ex - sx) * t;
         const py = sy + (ey - sy) * t;
         ctx.beginPath();
@@ -205,36 +214,38 @@ function drawAnimation(anim, elapsed) {
         ctx.fill();
         ctx.globalAlpha = 1;
     } else if (anim.kind === 'attack') {
-        // Dashed line from attacker to the sender of the attacked message.
         const from = anim.from, to = anim.to;
         const sx = from.x, sy = from.y;
         const ex = to.x, ey = to.y;
         const alpha = 1 - Math.pow(progress, 2);
+        const color = anim.success ? cssVar('--success') : cssVar('--danger');
+
+        // Dashed line
         ctx.beginPath();
         ctx.setLineDash([6, 4]);
         ctx.moveTo(sx, sy);
         ctx.lineTo(ex, ey);
-        ctx.strokeStyle = anim.success ? cssVar('--success') : cssVar('--danger');
+        ctx.strokeStyle = color;
         ctx.globalAlpha = alpha;
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Big circular flash on the target.
+        // Flash circle on target
         const flashRadius = 20 + progress * 30;
         ctx.beginPath();
         ctx.arc(ex, ey, flashRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = anim.success ? cssVar('--success') : cssVar('--danger');
+        ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.globalAlpha = alpha * 0.8;
         ctx.stroke();
 
-        // Skull or checkmark icon next to the target.
-        ctx.font = 'bold 18px Inter, sans-serif';
-        ctx.fillStyle = anim.success ? cssVar('--success') : cssVar('--danger');
+        // Result glyph
+        ctx.font = 'bold 22px "IBM Plex Sans", sans-serif';
+        ctx.fillStyle = color;
         ctx.globalAlpha = alpha;
         ctx.textAlign = 'left';
-        ctx.fillText(anim.success ? '☠' : '✓', ex + 20, ey - 20);
+        ctx.fillText(anim.success ? '✕' : '✓', ex + 22, ey - 18);
         ctx.globalAlpha = 1;
     }
 }
@@ -244,44 +255,51 @@ function findAgent(name) {
 }
 
 // ---------------------------------------------------------------------------
-// Process incoming events — push animations + append to log.
+// Process incoming events.
 // ---------------------------------------------------------------------------
 
 function processTick(payload) {
-    state.events = state.events.concat(payload.events).slice(-200);
+    state.events = state.events.concat(payload.events).slice(-300);
+
+    // Stagger animations: each event's animation starts after the previous
+    // one's stagger delay, so they don't all appear at once.
+    let stagger = 0;
+    const STAGGER_MS = 180;
     (payload.events || []).forEach(ev => {
         if (ev.kind === 'send') {
             const from = findAgent(ev.sender);
             const to = findAgent(ev.target);
             if (from && to) {
-                // Color the arrow by cipher.
-                const colorMap = {
-                    shift: '#00bcd4', rail_fence: '#00e5ff', permutation: '#2196f3',
-                    vigenere: '#3b82f6', substitution: '#a855f7', stream: '#d946ef',
-                    feistel: '#eab308', aes: '#f59e0b', rsa: '#22c55e',
-                };
-                state.animations.push({
-                    kind: 'send', startTime: performance.now(), duration: 1500,
+                state.pendingAnimations.push({
+                    kind: 'send', startTime: performance.now() + stagger,
+                    duration: 1400,
                     from: {x: from.x, y: from.y}, to: {x: to.x, y: to.y},
-                    color: colorMap[ev.cipher] || cssVar('--text-muted'),
+                    fromName: from.name, toName: to.name,
+                    color: cipherColorFor(ev.cipher),
                 });
+                stagger += STAGGER_MS;
             }
         } else if (ev.kind === 'intercepted' || ev.kind === 'secure') {
             const atk = findAgent(ev.attacker);
             const tgt = findAgent(ev.sender);
             if (atk && tgt) {
-                state.animations.push({
-                    kind: 'attack', startTime: performance.now(), duration: 1200,
+                state.pendingAnimations.push({
+                    kind: 'attack', startTime: performance.now() + stagger,
+                    duration: 1100,
                     from: {x: atk.x, y: atk.y}, to: {x: tgt.x, y: tgt.y},
+                    fromName: atk.name, toName: tgt.name,
                     success: ev.kind === 'intercepted',
                 });
+                stagger += STAGGER_MS;
             }
         }
     });
+
     state.stats = payload.stats;
     rebuildAgents(payload.stats);
     updateStatsPanels();
     renderLog();
+    refreshOpenModal();
 }
 
 function processSnapshot(payload) {
@@ -296,18 +314,20 @@ function processSnapshot(payload) {
 }
 
 // ---------------------------------------------------------------------------
-// WebSocket connection with auto-reconnect.
+// WebSocket.
 // ---------------------------------------------------------------------------
 
 function connect() {
     state.ws = new WebSocket(wsUrl('/ws/sim'));
     state.ws.onopen = () => {
-        document.getElementById('ws-status').className = 'badge badge-success';
-        document.getElementById('ws-status').innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> live';
+        const el = document.getElementById('ws-status');
+        el.className = 'tag tag-success';
+        el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> live';
     };
     state.ws.onclose = () => {
-        document.getElementById('ws-status').className = 'badge badge-danger';
-        document.getElementById('ws-status').innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> offline';
+        const el = document.getElementById('ws-status');
+        el.className = 'tag tag-danger';
+        el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> offline';
         setTimeout(connect, 1500);
     };
     state.ws.onerror = () => { state.ws.close(); };
@@ -318,8 +338,24 @@ function connect() {
     };
 }
 
+// Pause when the user navigates away from the simulation page.
+document.addEventListener('visibilitychange', async () => {
+    if (document.hidden && state.running) {
+        await apiPost('/api/sim/pause', {});
+        state.running = false;
+        updateControlUI();
+    }
+});
+// Also pause on pagehide (covers tab close + back/forward).
+window.addEventListener('pagehide', async () => {
+    if (state.running) {
+        try { await apiPost('/api/sim/pause', {}); } catch (e) {}
+        state.running = false;
+    }
+});
+
 // ---------------------------------------------------------------------------
-// Sim control: start / pause / reset / live tune.
+// Sim control.
 // ---------------------------------------------------------------------------
 
 async function simStart() {
@@ -340,15 +376,27 @@ async function simReset() {
         num_attackers: parseInt(document.getElementById('num-atks').value),
         attacker_temperature: parseFloat(document.getElementById('atk-temp').value),
         communicator_temperature: parseFloat(document.getElementById('comm-temp').value),
-        tick_interval: parseFloat(document.getElementById('tick-interval').value),
+        tick_interval: 1.0 / parseFloat(document.getElementById('tick-rate').value),
         seed: parseInt(document.getElementById('seed').value) || null,
     };
     await apiPost('/api/sim/reset', cfg);
     state.config = cfg;
+    state.events = [];
+    state.agents = [];
+    state.animations = [];
+    state.pendingAnimations = [];
+    renderRoster();
+    renderLog();
+    updateStatsPanels();
 }
 
-async function liveTune(field, value) {
-    await apiPost('/api/sim/tune', {[field]: value});
+// When the user changes a setting, pause the sim (per user request).
+async function pauseOnChange() {
+    if (state.running) {
+        await apiPost('/api/sim/pause', {});
+        state.running = false;
+        updateControlUI();
+    }
 }
 
 function updateControlUI() {
@@ -365,102 +413,191 @@ function updateControlUI() {
     document.getElementById('num-atks').value = state.config.num_attackers;
     document.getElementById('atk-temp').value = state.config.attacker_temperature;
     document.getElementById('comm-temp').value = state.config.communicator_temperature;
-    document.getElementById('tick-interval').value = state.config.tick_interval;
+    const rate = 1.0 / state.config.tick_interval;
+    document.getElementById('tick-rate').value = rate;
     document.getElementById('num-comms-val').textContent = state.config.num_communicators;
     document.getElementById('num-atks-val').textContent = state.config.num_attackers;
     document.getElementById('atk-temp-val').textContent = state.config.attacker_temperature.toFixed(2);
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
-    document.getElementById('tick-interval-val').textContent = state.config.tick_interval.toFixed(2) + 's';
+    document.getElementById('tick-rate-val').textContent = rate.toFixed(1) + '/s';
 }
 
 // ---------------------------------------------------------------------------
-// Stats panels.
+// Stats panels — visual bars with hover tooltips.
 // ---------------------------------------------------------------------------
 
 function updateStatsPanels() {
     if (!state.stats) return;
     const s = state.stats;
 
-    // Summary cards.
     document.getElementById('stat-tick').textContent = s.summary.tick;
     document.getElementById('stat-messages').textContent = s.summary.total_messages;
-    document.getElementById('stat-survival').textContent = s.summary.overall_survival_pct.toFixed(1) + '%';
+    document.getElementById('stat-survival').textContent = s.summary.overall_survival_pct.toFixed(0) + '%';
     document.getElementById('stat-ciphers').textContent = s.summary.distinct_ciphers_used;
 
-    // Cipher usage table.
+    // Cipher usage — visual bars
     const cipherRows = (s.cipher_usage || [])
-        .map(c => ({...c, usage_pct: s.summary.total_messages ? 100 * c.used / s.summary.total_messages : 0,
+        .map(c => ({...c, slug: c.name,
+                     usage_pct: s.summary.total_messages ? 100 * c.used / s.summary.total_messages : 0,
                      break_pct: c.used ? 100 * c.broken / c.used : 0}))
         .filter(c => c.used > 0)
         .sort((a, b) => b.used - a.used);
-    document.getElementById('cipher-usage-table').innerHTML = cipherRows.map(c => `
-        <tr>
-            <td><span class="cipher-pill pill-${c.name}">${c.name}</span></td>
-            <td>${c.used}</td>
-            <td>${c.usage_pct.toFixed(1)}%</td>
-            <td>${c.broken}</td>
-            <td>${c.break_pct.toFixed(1)}%</td>
-            <td style="width:80px;"><div class="usage-bar"><div style="width:${c.usage_pct}%;background:${cipherColorFor(c.name)}"></div></div></td>
-        </tr>
-    `).join('') || '<tr><td colspan="6" class="text-muted text-center">No messages yet.</td></tr>';
 
-    // Attack usage table.
+    const cipherEl = document.getElementById('cipher-usage-chart');
+    if (cipherRows.length === 0) {
+        cipherEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No data yet — start the simulation.</div></div>';
+    } else {
+        cipherEl.innerHTML = cipherRows.map(c => {
+            const color = cipherColorFor(c.slug);
+            const breakColor = cssVar('--danger');
+            return `
+                <div class="usage-row tooltip">
+                    <div class="name">${cipherName(c.slug)}</div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:${c.usage_pct}%;background:${color}">
+                            <span class="bar-label">${c.usage_pct.toFixed(0)}%</span>
+                        </div>
+                        <div class="bar-fill secondary" style="width:${c.break_pct}%;background:${breakColor}"></div>
+                    </div>
+                    <div class="pct">${c.usage_pct.toFixed(0)}%</div>
+                    <span class="tooltip-text">
+                        <div class="row"><span>Sent</span><b>${c.used}</b></div>
+                        <div class="row"><span>Broken</span><b>${c.broken}</b></div>
+                        <div class="row"><span>Break rate</span><b>${c.break_pct.toFixed(1)}%</b></div>
+                        <div class="row"><span>Share of traffic</span><b>${c.usage_pct.toFixed(1)}%</b></div>
+                    </span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Attack usage — visual bars
     const totalAtks = (s.attack_usage || []).reduce((sum, a) => sum + a.used, 0);
     const atkRows = (s.attack_usage || [])
-        .map(a => ({...a, usage_pct: totalAtks ? 100 * a.used / totalAtks : 0,
+        .map(a => ({...a, slug: a.name,
+                     usage_pct: totalAtks ? 100 * a.used / totalAtks : 0,
                      succ_pct: a.used ? 100 * a.success / a.used : 0}))
         .filter(a => a.used > 0)
         .sort((a, b) => b.used - a.used);
-    document.getElementById('attack-usage-table').innerHTML = atkRows.map(a => `
-        <tr>
-            <td><span class="attack-pill pill-${a.name}">${a.name}</span></td>
-            <td>${a.used}</td>
-            <td>${a.usage_pct.toFixed(1)}%</td>
-            <td>${a.success}</td>
-            <td>${a.succ_pct.toFixed(1)}%</td>
-            <td style="width:80px;"><div class="usage-bar"><div style="width:${a.succ_pct}%;background:${attackColorFor(a.name)}"></div></div></td>
-        </tr>
-    `).join('') || '<tr><td colspan="6" class="text-muted text-center">No attacks yet.</td></tr>';
+
+    const atkEl = document.getElementById('attack-usage-chart');
+    if (atkRows.length === 0) {
+        atkEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No data yet — start the simulation.</div></div>';
+    } else {
+        atkEl.innerHTML = atkRows.map(a => {
+            const color = attackColorFor(a.slug);
+            const failColor = cssVar('--text-dim');
+            return `
+                <div class="usage-row tooltip">
+                    <div class="name">${attackName(a.slug)}</div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:${a.succ_pct}%;background:${color}">
+                            <span class="bar-label">${a.succ_pct.toFixed(0)}%</span>
+                        </div>
+                    </div>
+                    <div class="pct">${a.usage_pct.toFixed(0)}%</div>
+                    <span class="tooltip-text">
+                        <div class="row"><span>Attempts</span><b>${a.used}</b></div>
+                        <div class="row"><span>Successes</span><b>${a.success}</b></div>
+                        <div class="row"><span>Success rate</span><b>${a.succ_pct.toFixed(1)}%</b></div>
+                        <div class="row"><span>Share of attacks</span><b>${a.usage_pct.toFixed(1)}%</b></div>
+                    </span>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
-function cipherColorFor(name) {
-    return {shift:'#00bcd4', rail_fence:'#00e5ff', permutation:'#2196f3',
-            vigenere:'#3b82f6', substitution:'#a855f7', stream:'#d946ef',
-            feistel:'#eab308', aes:'#f59e0b', rsa:'#22c55e'}[name] || '#888';
+function cipherColorFor(slug) {
+    return {
+        shift:'#0097a7', rail_fence:'#0097a7', permutation:'#1976d2',
+        vigenere:'#1976d2', substitution:'#7b1fa2', stream:'#7b1fa2',
+        feistel:'#e65100', aes:'#e65100', rsa:'#2e7d32',
+    }[slug] || '#888';
 }
-function attackColorFor(name) {
-    return {brute_force:'#ef4444', frequency:'#f87171',
-            known_plaintext:'#facc15', dictionary:'#fde047'}[name] || '#888';
+function attackColorFor(slug) {
+    return {
+        brute_force:'#c62828', frequency:'#c62828',
+        known_plaintext:'#ef6c00', dictionary:'#ef6c00',
+    }[slug] || '#888';
 }
 
 // ---------------------------------------------------------------------------
-// Agent roster panel.
+// Agent roster — friendly, with visual badges and a divider between spies/hackers.
 // ---------------------------------------------------------------------------
 
 function renderRoster() {
-    const html = state.agents.map(a => {
-        const top = (a.topActions || []).slice(0, 3)
-            .map(([name, prob]) => `<span class="badge" style="background:${a.role==='attacker'?attackColorFor(name):cipherColorFor(name)}22;color:${a.role==='attacker'?attackColorFor(name):cipherColorFor(name)}">${name} ${(prob*100).toFixed(0)}%</span>`).join(' ');
+    const comms = state.agents.filter(a => a.role === 'communicator');
+    const atks = state.agents.filter(a => a.role === 'attacker');
+    if (comms.length === 0 && atks.length === 0) {
+        document.getElementById('agent-roster').innerHTML =
+            '<div class="empty-state"><i class="fa-solid fa-users-slash"></i><div>Waiting for agents...</div></div>';
+        return;
+    }
+
+    const commHtml = comms.map(a => {
+        const sent = a.sent || 0;
+        const broken = a.broken || 0;
+        const ok = sent - broken;
         return `
-            <div class="phone-list-item" onclick="openAgent('${a.name}','${a.role}')">
+            <div class="phone-list-item" onclick="openAgent('${a.name}','communicator')">
                 <div class="avatar" style="background:${a.color}">${initials(a.name)}</div>
                 <div class="info">
                     <div class="name">${a.name}</div>
-                    <div class="preview">${top || '<span class="text-muted">no data yet</span>'}</div>
-                </div>
-                <div class="meta">
-                    ${a.role === 'attacker'
-                        ? `${a.attempts||0} atk<br>${a.success||0} wins`
-                        : `${a.sent||0} sent<br>${(a.sent||0)-(a.broken||0)} ok`}
+                    <div class="preview" style="display:flex;gap:6px;align-items:center">
+                        <span class="tag" style="padding:1px 6px;font-size:0.65rem"><i class="fa-solid fa-paper-plane"></i> ${sent}</span>
+                        <span class="tag tag-success" style="padding:1px 6px;font-size:0.65rem"><i class="fa-solid fa-shield-halved"></i> ${ok}</span>
+                        ${broken > 0 ? `<span class="tag tag-danger" style="padding:1px 6px;font-size:0.65rem"><i class="fa-solid fa-skull"></i> ${broken}</span>` : ''}
+                    </div>
                 </div>
             </div>
         `;
     }).join('');
-    document.getElementById('agent-roster').innerHTML = html || '<div class="empty-state"><i class="fa-solid fa-users-slash"></i><div>Waiting for agents...</div></div>';
+
+    const atkHtml = atks.map(a => {
+        const attempts = a.attempts || 0;
+        const success = a.success || 0;
+        return `
+            <div class="phone-list-item" onclick="openAgent('${a.name}','attacker')">
+                <div class="avatar" style="background:${a.color}">${initials(a.name)}</div>
+                <div class="info">
+                    <div class="name">${a.name}</div>
+                    <div class="preview" style="display:flex;gap:6px;align-items:center">
+                        <span class="tag" style="padding:1px 6px;font-size:0.65rem"><i class="fa-solid fa-crosshairs"></i> ${attempts}</span>
+                        <span class="tag tag-danger" style="padding:1px 6px;font-size:0.65rem"><i class="fa-solid fa-skull"></i> ${success}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    document.getElementById('agent-roster').innerHTML = `
+        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em">
+            <i class="fa-solid fa-user-secret" style="color:var(--accent)"></i> Spies
+        </div>
+        ${commHtml}
+        <div style="margin:8px 0;border-top:1px dashed var(--border-strong)"></div>
+        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em">
+            <i class="fa-solid fa-skull-crossbones" style="color:var(--danger)"></i> Hackers
+        </div>
+        ${atkHtml}
+    `;
 }
 
 // ---------------------------------------------------------------------------
-// Log panel — collapsible + filterable.
+// Agent filter dropdown — dynamic.
+// ---------------------------------------------------------------------------
+
+function updateAgentFilter() {
+    const sel = document.getElementById('filter-agent');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">any</option>' +
+        state.agents.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+    if (state.agents.some(a => a.name === current)) sel.value = current;
+}
+
+// ---------------------------------------------------------------------------
+// Log panel.
 // ---------------------------------------------------------------------------
 
 function renderLog() {
@@ -468,7 +605,6 @@ function renderLog() {
     if (!container) return;
     let events = state.events.slice().reverse();
 
-    // Apply filters.
     const f = state.filters;
     if (f.agent) events = events.filter(e =>
         e.sender === f.agent || e.target === f.agent || e.attacker === f.agent);
@@ -478,33 +614,37 @@ function renderLog() {
     if (f.outcome === 'failed') events = events.filter(e => e.kind === 'secure');
     if (f.outcome === 'send') events = events.filter(e => e.kind === 'send');
 
-    events = events.slice(0, 100);
+    events = events.slice(0, 80);
+
+    const countEl = document.getElementById('log-count');
+    if (countEl) countEl.textContent = events.length;
 
     container.innerHTML = events.map(ev => {
-        let cls = ev.kind;
+        let cls = 'log-entry ' + ev.kind;
         let icon = 'fa-message';
         if (ev.kind === 'send') icon = 'fa-paper-plane';
         else if (ev.kind === 'intercepted') icon = 'fa-skull-crossbones';
         else if (ev.kind === 'secure') icon = 'fa-shield-halved';
         else if (ev.kind === 'skip') icon = 'fa-forward';
+
         return `
-            <div class="log-entry ${cls}">
-                <span class="tick">T${ev.tick}</span>
-                <i class="fa-solid ${icon}" style="width:14px"></i>
+            <div class="${cls}" style="padding:5px 8px;border-radius:0;margin-bottom:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;${ev.kind === 'intercepted' ? 'background:var(--danger-soft)' : ev.kind === 'secure' ? 'background:var(--success-soft)' : ''}">
+                <span style="color:var(--text-dim);min-width:50px">T${ev.tick}</span>
+                <i class="fa-solid ${icon}" style="width:14px;color:var(--text-muted)"></i>
                 ${ev.kind === 'send'
-                    ? `<span><b>${ev.sender}</b> → <b>${ev.target}</b> ${ev.cipher ? cipherPill(ev.cipher) : ''} <span class="text-muted">"${ev.message_preview}"</span></span>`
+                    ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(ev.message_preview)}"</span></span>`
                     : ev.kind === 'intercepted'
-                    ? `<span><b>${ev.attacker}</b> broke <b>${ev.sender}</b>'s ${ev.cipher ? cipherPill(ev.cipher) : ''} via ${ev.attack ? attackPill(ev.attack) : ''} <span class="text-muted">(${ev.notes})</span></span>`
+                    ? `<span><b>${ev.attacker}</b> cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} with ${ev.attack ? attackTag(ev.attack) : ''} <span class="text-muted">(${escapeHtml(ev.notes)})</span></span>`
                     : ev.kind === 'secure'
-                    ? `<span><b>${ev.attacker}</b> failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherPill(ev.cipher) : ''} ${ev.attack ? attackPill(ev.attack) : ''} <span class="text-muted">(${ev.notes})</span></span>`
-                    : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherPill(ev.cipher) : ''}</span>`}
+                    ? `<span><b>${ev.attacker}</b> failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} ${ev.attack ? attackTag(ev.attack) : ''} <span class="text-muted">(${escapeHtml(ev.notes)})</span></span>`
+                    : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''}</span>`}
             </div>
         `;
     }).join('') || '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
 }
 
-function toggleLogPanel() {
-    document.getElementById('log-panel').classList.toggle('collapsed');
+function togglePanel(id) {
+    document.getElementById(id).classList.toggle('collapsed');
 }
 
 function setFilter(key, val) {
@@ -513,148 +653,181 @@ function setFilter(key, val) {
 }
 
 // ---------------------------------------------------------------------------
-// Phone modal (communicator) and attacker panel.
+// Phone modal — with real-time refresh.
 // ---------------------------------------------------------------------------
 
 async function openAgent(name, role) {
-    if (role === 'communicator') await openPhone(name);
-    else await openAttackerPanel(name);
+    if (role === 'communicator') {
+        await openPhone(name);
+    } else {
+        await openAttackerPanel(name);
+    }
 }
 
 async function openPhone(name) {
+    state.openModal = {type: 'phone', name, contact: null};
+    await refreshPhone();
+    document.getElementById('phone-modal').classList.add('open');
+}
+
+async function refreshPhone() {
+    if (!state.openModal || state.openModal.type !== 'phone') return;
+    const name = state.openModal.name;
     const data = await apiGet(`/api/sim/agent/${encodeURIComponent(name)}/chat`);
-    const modal = document.getElementById('phone-modal');
-    const header = modal.querySelector('.phone-header');
-    const body = modal.querySelector('.phone-body');
+    const header = document.querySelector('#phone-modal .phone-header');
+    const body = document.getElementById('phone-body');
+    const avatarEl = document.getElementById('phone-avatar');
+    const nameEl = document.getElementById('phone-name');
+    const statusEl = document.getElementById('phone-status');
 
-    header.classList.remove('show-back');
-    header.querySelector('.avatar').textContent = initials(name);
-    header.querySelector('.avatar').style.background = '';
-    header.querySelector('.name').textContent = name;
-    header.querySelector('.status').textContent = 'communicator • online';
+    // If a contact is selected, render chat view.
+    if (state.openModal.contact) {
+        const contact = state.openModal.contact;
+        header.classList.add('show-back');
+        const contactAgent = state.agents.find(a => a.name === contact);
+        const contactColor = contactAgent ? contactAgent.color : '#888';
+        avatarEl.style.background = contactColor;
+        avatarEl.textContent = initials(contact);
+        nameEl.textContent = contact;
+        statusEl.innerHTML = '<span class="dot"></span> online';
 
-    // Render contact list.
-    const contacts = Object.keys(data.contacts || {});
-    if (contacts.length === 0) {
-        body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-comments"></i><div>No messages sent yet.</div></div>';
+        const msgs = (data.contacts || {})[contact] || [];
+        if (msgs.length === 0) {
+            body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-comment-slash"></i><div>No messages yet.</div></div>';
+            return;
+        }
+        let lastTick = -10;
+        body.innerHTML = msgs.map(m => {
+            const tickDivider = (m.tick - lastTick > 5) ? `<div class="chat-day-divider">— Tick ${m.tick} —</div>` : '';
+            lastTick = m.tick;
+            const cls = m.direction === 'out' ? 'out' : 'in';
+            const banner = m.broken
+                ? `<div class="intercepted-banner"><i class="fa-solid fa-skull-crossbones"></i> CRACKED by ${m.intercepted_by} via ${attackName(m.attack || '')}</div>`
+                : (m.intercepted_by && !m.broken)
+                ? `<div class="intercepted-banner survived"><i class="fa-solid fa-shield-halved"></i> ${m.intercepted_by} attacked — survived</div>`
+                : '';
+            return `
+                ${tickDivider}
+                <div class="chat-bubble ${cls} ${m.broken ? 'intercepted' : ''}">
+                    ${banner}
+                    <div class="cipher-tag">${cipherName(m.cipher)}</div>
+                    <div>${escapeHtml(m.plaintext)}</div>
+                    <div class="ciphertext">${m.ciphertext}</div>
+                    <div class="tick">T${m.tick} <i class="fa-solid fa-lock" style="font-size:0.6rem"></i> L${m.security_level}</div>
+                </div>
+            `;
+        }).join('');
+        body.scrollTop = body.scrollHeight;
     } else {
+        // Render contact list.
+        header.classList.remove('show-back');
+        const agent = state.agents.find(a => a.name === name);
+        avatarEl.style.background = agent ? agent.color : '#888';
+        avatarEl.textContent = initials(name);
+        nameEl.textContent = name;
+        statusEl.innerHTML = '<span class="dot"></span> online';
+
+        const contacts = Object.keys(data.contacts || {});
+        if (contacts.length === 0) {
+            body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-comments"></i><div>No messages yet.</div></div>';
+            return;
+        }
         body.innerHTML = contacts.map(c => {
             const msgs = data.contacts[c];
             const last = msgs[msgs.length - 1];
-            const preview = last.plaintext.slice(0, 30);
+            const preview = last.plaintext.slice(0, 32);
             const intercepted = msgs.some(m => m.broken);
+            const contactAgent = state.agents.find(a => a.name === c);
+            const contactColor = contactAgent ? contactAgent.color : '#888';
             return `
                 <div class="phone-list-item" onclick="openChat('${name}','${c}')">
-                    <div class="avatar" style="background:${colorForAgent(c, 'communicator', 0)}">${initials(c)}</div>
+                    <div class="avatar" style="background:${contactColor}">${initials(c)}</div>
                     <div class="info">
-                        <div class="name">${c} ${intercepted ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)" title="Some messages were intercepted"></i>' : ''}</div>
-                        <div class="preview">${preview}</div>
+                        <div class="name">${c} ${intercepted ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);font-size:0.7rem"></i>' : ''}</div>
+                        <div class="preview">${escapeHtml(preview)}</div>
                     </div>
                     <div class="meta">T${last.tick}</div>
                 </div>
             `;
         }).join('');
     }
-    modal.classList.add('open');
-    modal.dataset.currentAgent = name;
-    modal.dataset.currentContact = '';
 }
 
-async function openChat(agentName, contactName) {
-    const data = await apiGet(`/api/sim/agent/${encodeURIComponent(agentName)}/chat`);
-    const modal = document.getElementById('phone-modal');
-    const header = modal.querySelector('.phone-header');
-    const body = modal.querySelector('.phone-body');
-
-    header.classList.add('show-back');
-    header.querySelector('.name').textContent = contactName;
-    header.querySelector('.status').textContent = `chat with ${agentName}`;
-
-    const msgs = data.contacts[contactName] || [];
-    if (msgs.length === 0) {
-        body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-comment-slash"></i><div>No messages in this conversation.</div></div>';
-        return;
-    }
-
-    let lastTick = -10;
-    body.innerHTML = msgs.map(m => {
-        const tickDivider = (m.tick - lastTick > 5) ? `<div class="chat-day-divider">Tick ${m.tick}</div>` : '';
-        lastTick = m.tick;
-        const cls = m.direction === 'out' ? 'out' : 'in';
-        const interceptedBanner = m.broken
-            ? `<div class="intercepted-banner"><i class="fa-solid fa-skull-crossbones"></i> INTERCEPTED by ${m.intercepted_by} via ${m.attack}</div>`
-            : (m.intercepted_by && !m.broken)
-            ? `<div class="intercepted-banner" style="background:var(--success)"><i class="fa-solid fa-shield-halved"></i> ATTACKED by ${m.intercepted_by} — survived</div>`
-            : '';
-        return `
-            ${tickDivider}
-            <div class="chat-bubble ${cls} ${m.broken ? 'intercepted' : ''}">
-                ${interceptedBanner}
-                <div class="cipher-tag">${m.cipher}</div>
-                <div>${escapeHtml(m.plaintext)}</div>
-                <div class="ciphertext">${m.ciphertext}</div>
-                <div class="tick">T${m.tick} • L${m.security_level}</div>
-            </div>
-        `;
-    }).join('');
-    body.scrollTop = body.scrollHeight;
-    modal.dataset.currentContact = contactName;
+function openChat(agentName, contactName) {
+    state.openModal = {type: 'phone', name: agentName, contact: contactName};
+    refreshPhone();
 }
+
+// ---------------------------------------------------------------------------
+// Attacker panel — with real-time refresh.
+// ---------------------------------------------------------------------------
 
 async function openAttackerPanel(name) {
+    state.openModal = {type: 'attacker', name};
+    await refreshAttackerPanel();
+    document.getElementById('attacker-modal').classList.add('open');
+}
+
+async function refreshAttackerPanel() {
+    if (!state.openModal || state.openModal.type !== 'attacker') return;
+    const name = state.openModal.name;
     const data = await apiGet(`/api/sim/agent/${encodeURIComponent(name)}/attacks`);
-    const modal = document.getElementById('attacker-modal');
-    const body = modal.querySelector('.modal-body');
-    modal.querySelector('.modal-title').textContent = `${name} — attacker log`;
+    const body = document.getElementById('attacker-body');
+    document.getElementById('attacker-title').textContent = `${name} — attack log`;
 
     const attempts = data.attempts || [];
     if (attempts.length === 0) {
         body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-satellite-dish"></i><div>No attacks yet.</div></div>';
-    } else {
-        body.innerHTML = attempts.slice().reverse().map(a => `
-            <div class="card mb-2" style="padding:14px;${a.success ? 'border-left:3px solid var(--danger)' : a.skipped ? 'border-left:3px solid var(--text-dim)' : 'border-left:3px solid var(--success)'}">
-                <div class="flex items-center justify-between mb-1">
-                    <div>
-                        <span class="badge ${a.success ? 'badge-danger' : a.skipped ? '' : 'badge-success'}">
-                            <i class="fa-solid ${a.success ? 'fa-skull-crossbones' : a.skipped ? 'fa-forward' : 'fa-shield-halved'}"></i>
-                            ${a.success ? 'BROKEN' : a.skipped ? 'SKIPPED' : 'SURVIVED'}
-                        </span>
-                        T${a.tick} • <b>${a.sender}</b> → <b>${a.target}</b>
-                    </div>
-                    <div>${a.cipher ? cipherPill(a.cipher) : ''} ${a.attack ? attackPill(a.attack) : ''}</div>
-                </div>
-                ${a.ciphertext ? `<div class="code-block" style="margin:8px 0;font-size:0.78rem">${a.ciphertext}</div>` : ''}
-                ${a.plaintext ? `<div class="text-muted" style="font-size:0.85rem"><b>Recovered:</b> ${escapeHtml(a.plaintext)}</div>` : ''}
-                <div class="text-muted" style="font-size:0.78rem;margin-top:4px">${a.notes}</div>
-            </div>
-        `).join('');
+        return;
     }
-    modal.classList.add('open');
+    body.innerHTML = attempts.slice().reverse().map(a => {
+        const color = a.success ? 'var(--danger)' : a.skipped ? 'var(--text-dim)' : 'var(--success)';
+        const badge = a.success
+            ? '<span class="tag tag-danger"><i class="fa-solid fa-skull-crossbones"></i> Cracked</span>'
+            : a.skipped
+            ? '<span class="tag"><i class="fa-solid fa-forward"></i> Skipped</span>'
+            : '<span class="tag tag-success"><i class="fa-solid fa-shield-halved"></i> Survived</span>';
+        return `
+            <div class="panel mb-2" style="padding:14px;border-left:3px solid ${color}">
+                <div class="flex items-center justify-between mb-1" style="flex-wrap:wrap;gap:8px">
+                    <div style="font-family:var(--font-mono);font-size:0.82rem">
+                        T${a.tick} &middot; <b>${a.sender}</b>
+                        <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem;margin:0 4px"></i>
+                        <b>${a.target}</b>
+                    </div>
+                    <div>${badge} ${a.cipher ? cipherTag(a.cipher) : ''} ${a.attack ? attackTag(a.attack) : ''}</div>
+                </div>
+                ${a.ciphertext ? `<div class="output-block" style="margin:8px 0;font-size:0.78rem;padding:8px 10px">${escapeHtml(a.ciphertext)}</div>` : ''}
+                ${a.plaintext ? `<div class="text-muted" style="font-size:0.85rem"><b>Recovered:</b> ${escapeHtml(a.plaintext)}</div>` : ''}
+                <div class="text-muted" style="font-size:0.75rem;margin-top:4px;font-family:var(--font-mono)">${escapeHtml(a.notes)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function refreshOpenModal() {
+    if (!state.openModal) return;
+    if (state.openModal.type === 'phone') refreshPhone();
+    else if (state.openModal.type === 'attacker') refreshAttackerPanel();
 }
 
 function closePhone() {
-    const modal = document.getElementById('phone-modal');
-    const header = modal.querySelector('.phone-header');
-    if (modal.dataset.currentContact) {
-        // Go back to contact list.
-        modal.dataset.currentContact = '';
-        header.classList.remove('show-back');
-        openPhone(modal.dataset.currentAgent);
+    if (state.openModal && state.openModal.contact) {
+        state.openModal.contact = null;
+        refreshPhone();
     } else {
-        modal.classList.remove('open');
+        document.getElementById('phone-modal').classList.remove('open');
+        state.openModal = null;
     }
 }
 
 function closeAttacker() {
     document.getElementById('attacker-modal').classList.remove('open');
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+    state.openModal = null;
 }
 
 // ---------------------------------------------------------------------------
-// Wire up controls and start the show.
+// Wire up controls.
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -662,38 +835,42 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(render);
     connect();
 
-    // Control buttons.
     document.getElementById('btn-start').onclick = simStart;
     document.getElementById('btn-pause').onclick = simPause;
     document.getElementById('btn-reset').onclick = simReset;
 
-    // Live-tunable sliders.
-    document.getElementById('atk-temp').oninput = e => {
-        const v = parseFloat(e.target.value);
-        document.getElementById('atk-temp-val').textContent = v.toFixed(2);
-        liveTune('attacker_temperature', v);
-    };
-    document.getElementById('comm-temp').oninput = e => {
-        const v = parseFloat(e.target.value);
-        document.getElementById('comm-temp-val').textContent = v.toFixed(2);
-        liveTune('communicator_temperature', v);
-    };
-    document.getElementById('tick-interval').oninput = e => {
-        const v = parseFloat(e.target.value);
-        document.getElementById('tick-interval-val').textContent = v.toFixed(2) + 's';
-        liveTune('tick_interval', v);
-    };
+    // Settings pause the sim on change (per user request — no live tuning).
+    ['num-comms', 'num-atks', 'seed'].forEach(id => {
+        document.getElementById(id).addEventListener('change', pauseOnChange);
+        document.getElementById(id).addEventListener('input', e => {
+            if (id === 'num-comms') document.getElementById('num-comms-val').textContent = e.target.value;
+            if (id === 'num-atks') document.getElementById('num-atks-val').textContent = e.target.value;
+        });
+    });
 
-    // Reset-requiring sliders.
-    document.getElementById('num-comms').oninput = e => {
-        document.getElementById('num-comms-val').textContent = e.target.value;
-    };
-    document.getElementById('num-atks').oninput = e => {
-        document.getElementById('num-atks-val').textContent = e.target.value;
-    };
-
-    // Log panel toggle.
-    document.getElementById('log-header').onclick = toggleLogPanel;
+    // Live-preview the slider values, but apply on change (which pauses).
+    document.getElementById('atk-temp').addEventListener('input', e => {
+        document.getElementById('atk-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+    document.getElementById('atk-temp').addEventListener('change', async e => {
+        await pauseOnChange();
+        await apiPost('/api/sim/tune', {attacker_temperature: parseFloat(e.target.value)});
+    });
+    document.getElementById('comm-temp').addEventListener('input', e => {
+        document.getElementById('comm-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+    document.getElementById('comm-temp').addEventListener('change', async e => {
+        await pauseOnChange();
+        await apiPost('/api/sim/tune', {communicator_temperature: parseFloat(e.target.value)});
+    });
+    document.getElementById('tick-rate').addEventListener('input', e => {
+        document.getElementById('tick-rate-val').textContent = parseFloat(e.target.value).toFixed(1) + '/s';
+    });
+    document.getElementById('tick-rate').addEventListener('change', async e => {
+        await pauseOnChange();
+        const interval = 1.0 / parseFloat(e.target.value);
+        await apiPost('/api/sim/tune', {tick_interval: interval});
+    });
 
     // Filter dropdowns.
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);
@@ -701,10 +878,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filter-attack').onchange = e => setFilter('attack', e.target.value);
     document.getElementById('filter-outcome').onchange = e => setFilter('outcome', e.target.value);
 
-    // Modal close buttons.
+    // Modal close.
     document.getElementById('phone-back').onclick = closePhone;
     document.getElementById('attacker-close').onclick = closeAttacker;
     document.querySelectorAll('.modal-overlay').forEach(o => {
-        o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+        o.addEventListener('click', e => {
+            if (e.target === o) {
+                o.classList.remove('open');
+                state.openModal = null;
+            }
+        });
     });
 });
