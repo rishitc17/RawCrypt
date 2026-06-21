@@ -104,10 +104,9 @@ class Strategy:
 # Communicator agent.
 # ---------------------------------------------------------------------------
 
-# A small corpus of plausible "secret" messages. Picking from here keeps
-# the simulation's traffic feeling realistic and gives frequency-analysis
-# attacks enough ciphertext volume to work with.
-MESSAGE_CORPUS = [
+# A small fallback corpus used only if the sentences.txt file fails to load.
+# The real corpus is loaded by the engine and injected into each Communicator.
+_FALLBACK_CORPUS = [
     "Hello, can you hear me?",
     "The package has arrived at the dock.",
     "Meet me at noon by the old church.",
@@ -130,11 +129,14 @@ MESSAGE_CORPUS = [
 class Communicator:
     name: str
     temperature: float = 1.2
+    message_corpus: tuple = field(default_factory=tuple)
     strategy: Strategy = field(init=False)
 
     def __post_init__(self):
         self.strategy = Strategy(list(CIPHER_REGISTRY.keys()),
                                  temperature=self.temperature)
+        if not self.message_corpus:
+            self.message_corpus = tuple(_FALLBACK_CORPUS)
 
     def pick_cipher(self, security_level: int) -> tuple[str, Any]:
         """Pick a cipher for a message with the given security level (1..5).
@@ -191,7 +193,7 @@ class Communicator:
         return chosen, probs
 
     def generate_message(self) -> str:
-        return random.choice(MESSAGE_CORPUS)
+        return random.choice(self.message_corpus)
 
     def record_cipher_outcome(self, cipher_name: str, broken: bool):
         """Update the communicator's strategy based on whether their message was broken.

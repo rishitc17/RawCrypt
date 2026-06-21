@@ -97,6 +97,7 @@ class SimManager:
         s = self.sim
         return {
             "tick": s.tick,
+            "rsa_params": getattr(s, "rsa_params", None),
             "cipher_usage": [
                 {"name": n, "used": s.cipher_usage.get(n, 0),
                  "broken": s.cipher_breaks.get(n, 0)}
@@ -348,16 +349,18 @@ def _coerce_key(cipher_name: str, key: Any):
     if cipher_name in ("feistel", "aes"):
         return str(key)
     if cipher_name == "permutation":
-        # key comes in as a list of ints
         return [int(x) for x in key]
     if cipher_name == "substitution":
-        # key comes in as a dict {binary_string: binary_string}
         return {str(k): str(v) for k, v in key.items()}
     if cipher_name == "stream":
-        # key comes in as [seed_str, taps_list]
         seed, taps = key
         return (str(seed), [int(t) for t in taps])
     if cipher_name == "rsa":
+        # key can be None (use shared instance) or {"p":..,"q":..,"e":..}
+        if key is None or key == "":
+            return None
+        if isinstance(key, dict):
+            return (int(key["p"]), int(key["q"]), int(key["e"]))
         return None
     return key
 
@@ -422,11 +425,13 @@ CIPHER_KEY_HELP = {
                        "rotating it left by 4 and 8 bits.",
     },
     "rsa": {
-        "format": "(no key — parameters are fixed: p=11, q=13, e=7, d=103)",
-        "placeholder": "",
-        "example": "",
-        "description": "Toy RSA uses fixed parameters (p=11, q=13, e=7). "
-                       "There's no key to enter — just supply the plaintext.",
+        "format": "three integers: p, q, e (all prime; p ≠ q; e coprime to (p-1)(q-1))",
+        "placeholder": "11, 13, 7",
+        "example": "11, 13, 7",
+        "description": "Pick two distinct primes p and q, plus a public exponent e "
+                       "that's coprime to (p-1)(q-1). The simulator computes n=p*q, "
+                       "phi=(p-1)(q-1), and d = e^(-1) mod phi automatically. "
+                       "For printable ASCII to encrypt cleanly, n must be > 127.",
     },
 }
 
@@ -500,9 +505,72 @@ async def cipher_generate_key(req: dict):
     elif cipher_name == "stream":
         seed, taps = key
         key_json = {"seed": seed, "taps": taps}
+    elif cipher_name == "rsa":
+        # Generate random small primes for the playground.
+        import random as _r
+        sys.path.insert(0, os.path.join(BACKEND_DIR, "ciphers"))
+        import rsa as _rsa_cipher_mod
+        small_primes = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59,
+                        61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109,
+                        113, 127, 131, 137, 139, 149, 151, 157, 163, 167,
+                        173, 179, 181, 191, 193, 197, 199]
+        while True:
+            p = _r.choice(small_primes)
+            q = _r.choice(small_primes)
+            if p == q or p * q <= 127:
+                continue
+            phi = (p - 1) * (q - 1)
+            candidates = [e for e in (3, 5, 7, 11, 13, 17, 19, 23)
+                          if _gcd(e, phi) == 1]
+            if candidates:
+                e = _r.choice(candidates)
+                key_json = {"p": p, "q": q, "e": e}
+                break
     else:
         key_json = key
     return {"cipher": cipher_name, "key": key_json}
+
+
+def _gcd(a: int, b: int) -> int:
+    while b:
+        a, b = b, a % b
+    return a
+
+
+@app.post("/api/rsa/compute")
+async def rsa_compute(req: dict):
+    """Compute n, phi, d from p, q, e. Returns an error message in plain
+    English if the inputs are invalid (not prime, not coprime, etc.).
+    """
+    sys.path.insert(0, os.path.join(BACKEND_DIR, "ciphers"))
+    import rsa as _rsa_cipher_mod
+    try:
+        p = int(req.get("p", 0))
+        q = int(req.get("q", 0))
+        e = int(req.get("e", 0))
+    except (ValueError, TypeError):
+        return JSONResponse({"error": "p, q, and e must all be integers."},
+                            status_code=400)
+    try:
+        instance = _rsa_cipher_mod.RSA(p=p, q=q, e=e)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except Exception as exc:
+        return JSONResponse(
+            {"error": f"Could not build RSA with those parameters: {exc}"},
+            status_code=400)
+    return {
+        "p": instance.p, "q": instance.q, "e": instance.e,
+        "n": instance.n, "phi": instance.phi, "d": instance.d,
+        "public_key": list(instance.public_key),
+        "private_key": list(instance.private_key),
+    }
+
+
+@app.get("/api/sim/rsa-params")
+async def sim_rsa_params():
+    """Return the RSA parameters currently in use by the simulation."""
+    return sim_manager.sim.rsa_params
 
 
 # --- Wiki -----------------------------------------------------------------

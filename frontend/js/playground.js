@@ -4,10 +4,22 @@ let ciphers = [];
 let selectedCipher = null;
 let lfsrState = { bits: ['0','0','0','1'], taps: new Set([2, 1]) };
 
+// Expanded cipher descriptions for the playground.
+const CIPHER_DESCRIPTIONS = {
+    shift: "The Caesar shift cipher — the oldest trick in the book. Every byte of your message gets nudged forward by the same amount (wrapping around at 256). With shift=3, 'A' (65) becomes 'D' (68). It's dirt cheap to use but offers almost no security: there are only 256 possible keys, so brute force cracks it in milliseconds.",
+    rail_fence: "A transposition cipher that writes your message in a zig-zag pattern across N horizontal 'rails', then reads each rail left-to-right. With 3 rails, the bits of your message trace a zig-zag across three rows. Cheap and slightly harder than shift, but with only 18 possible rail counts, brute force still cracks it instantly.",
+    permutation: "Chops your message into 8-byte blocks and rearranges the bytes of each block according to a fixed pattern (the key). For example, with the pattern [2,0,5,1,7,3,6,4], byte 0 goes to position 2, byte 1 goes to position 0, and so on. There are 8! = 40,320 possible patterns — sounds like a lot, but a modern computer can try them all in under a second.",
+    vigenere: "A polyalphabetic cipher that fooled Europe for 300 years. Pick a short key word, repeat it to match your message length, then shift each plaintext character by the value of the corresponding key character. The same plaintext letter doesn't always become the same ciphertext letter, which defeats simple frequency counts — but a known-plaintext attack (knowing a chunk of the original) reveals the key cycle directly.",
+    substitution: "Builds a giant lookup table: every printable byte maps to a different printable byte. There are 95! possible keys — astronomically large, so brute force is impossible. But the frequency pattern of the original text leaks straight through: the most common ciphertext byte is probably the substitute for space. This attack, called frequency analysis, has been breaking substitution ciphers since the 9th century.",
+    stream: "A stream cipher generates a long pseudo-random 'keystream' from a short seed, then XORs the keystream with your message one byte at a time. Decryption is the same operation (XOR is its own inverse). In RawCrypt, the keystream comes from a Linear Feedback Shift Register (LFSR) — a simple circuit that's fast but insecure on its own. A known-plaintext attack brute-forces the 4-bit or 8-bit seed and validates each candidate against a known chunk of plaintext.",
+    feistel: "A Feistel network splits the plaintext block into two halves L and R. On each round, the new L is the old R, and the new R is the old L XOR F(R, round_key), where F can be any scrambling function. The elegant trick: F doesn't need to be invertible — decryption uses the exact same circuit with round keys in reverse. RawCrypt's toy Feistel uses 4 rounds, 16-bit blocks, and a round function that's just XOR + nibble swap. DES (1977) is the most famous real-world Feistel cipher.",
+    aes: "AES is the most widely used symmetric cipher in the world — it protects HTTPS, WiFi, disk encryption, Signal, and iMessage. Each round applies four steps: SubBytes (substitute each byte using a lookup table), ShiftRows (permute bytes within rows), MixColumns (mix bytes within columns), and AddRoundKey (XOR with the round key). Real AES uses 128-bit blocks and 10-14 rounds; RawCrypt's toy version uses 16-bit blocks, 2 rounds, and a tiny 4-nibble S-box. It's cryptographically useless but demonstrates the structure.",
+    rsa: "RSA was invented in 1977 by Rivest, Shamir, and Adleman. Its security rests on a simple observation: multiplying two large primes is easy, but factoring the product back is (as far as anyone knows) extremely hard. Pick two primes p and q, compute n = p×q, pick a public exponent e coprime to (p-1)(q-1), and compute the private exponent d = e⁻¹ mod (p-1)(q-1). Publish (e, n) as your public key; keep (d, n) as your private key. Encrypt with c = mᵉ mod n, decrypt with m = cᵈ mod n. In this playground you can choose your own p, q, and e — the simulator computes n, phi, and d automatically.",
+};
+
 async function loadCiphers() {
     ciphers = await apiGet('/api/ciphers');
     renderCipherList();
-    // Check URL hash for a specific cipher (e.g. /playground#shift).
     const hash = window.location.hash.slice(1);
     const initial = ciphers.find(c => c.name === hash) ? hash : ciphers[0].name;
     selectCipher(initial);
@@ -19,8 +31,8 @@ function renderCipherList() {
             <div>
                 <div class="name">${cipherName(c.name)}</div>
                 <div class="meters">
-                    <span class="mini-meter">cost ${c.cost}</span>
-                    <span class="mini-meter">security ${c.security}</span>
+                    <span class="mini-meter">Cost: ${c.cost}</span>
+                    <span class="mini-meter">Security: ${c.security}</span>
                 </div>
             </div>
             <span class="tag ${tagClass('tag-cipher', c.name)}">${cipherName(c.name)}</span>
@@ -32,7 +44,6 @@ function renderCipherList() {
     `;
 }
 
-// FIX: defensive clearInputs — doesn't throw if elements don't exist yet.
 function clearInputs() {
     const pt = document.getElementById('plaintext-input');
     if (pt) pt.value = '';
@@ -42,7 +53,6 @@ function clearInputs() {
     if (eo) eo.innerHTML = '';
     const dout = document.getElementById('decrypt-output');
     if (dout) dout.innerHTML = '';
-    // Don't clear key-input here — the cipher-specific render will recreate it.
 }
 
 function selectCipher(name) {
@@ -51,36 +61,27 @@ function selectCipher(name) {
     const c = ciphers.find(x => x.name === name);
     if (!c) return;
 
-    // Update the list first, then clear and render.
     renderCipherList();
     clearInputs();
 
-    // Update header.
     document.getElementById('cipher-name').textContent = cipherName(name);
     document.getElementById('cipher-badges').innerHTML = `
-        <span class="tag tag-accent">cost ${c.cost}</span>
-        <span class="tag ${c.security >= 7 ? 'tag-success' : c.security >= 4 ? 'tag-warning' : 'tag-danger'}">security ${c.security}</span>
+        <span class="tag tag-accent">Cost: ${c.cost}</span>
+        <span class="tag ${c.security >= 7 ? 'tag-success' : c.security >= 4 ? 'tag-warning' : 'tag-danger'}">Security: ${c.security}</span>
     `;
-    document.getElementById('cipher-description').textContent = c.description;
+    // Use the expanded description from our local table; fall back to the API's.
+    document.getElementById('cipher-description').textContent = CIPHER_DESCRIPTIONS[name] || c.description;
 
-    // FIX: set wiki link href before rendering key input (in case render throws).
     const wikiLink = document.getElementById('cipher-wiki-link');
     if (wikiLink) {
         wikiLink.href = `/wiki#${name}`;
         wikiLink.style.display = '';
     }
 
-    // Render the cipher-specific key input.
     const keyContainer = document.getElementById('key-container');
     try {
         if (name === 'rsa') {
-            keyContainer.innerHTML = `
-                <label>Key</label>
-                <div class="disclaimer">
-                    <i class="fa-solid fa-circle-info"></i>
-                    Toy RSA uses fixed parameters: <code>p=11, q=13, n=143, e=7, d=103</code>. No key to enter — just supply the plaintext.
-                </div>
-            `;
+            renderRsaInput(keyContainer);
         } else if (name === 'stream') {
             renderLfsrInput(keyContainer);
         } else if (name === 'permutation') {
@@ -102,12 +103,75 @@ function selectCipher(name) {
             `;
         }
     } catch (e) {
-        // If rendering fails, fall back to a simple text input.
         keyContainer.innerHTML = `
             <label>Key</label>
             <input type="text" id="key-input" placeholder="Enter key">
         `;
     }
+}
+
+// ---------------------------------------------------------------------------
+// RSA visual input — p, q, e fields + live computation of n, phi, d.
+// ---------------------------------------------------------------------------
+
+function renderRsaInput(container) {
+    container.innerHTML = `
+        <label>RSA Parameters</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+            <div>
+                <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);margin-bottom:4px">p (prime)</div>
+                <input type="number" id="rsa-p" value="11" min="2" oninput="computeRsa()" />
+            </div>
+            <div>
+                <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);margin-bottom:4px">q (prime)</div>
+                <input type="number" id="rsa-q" value="13" min="2" oninput="computeRsa()" />
+            </div>
+            <div>
+                <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);margin-bottom:4px">e (public exp)</div>
+                <input type="number" id="rsa-e" value="7" min="2" oninput="computeRsa()" />
+            </div>
+        </div>
+        <div class="field-row mb-2">
+            <button class="btn btn-outline btn-sm" onclick="generateKey()"><i class="fa-solid fa-dice"></i> Random primes</button>
+        </div>
+        <div id="rsa-computed" style="background:var(--bg-panel-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:var(--font-mono);font-size:0.82rem;line-height:1.7">
+            <i class="fa-solid fa-spinner spinner"></i> computing...
+        </div>
+        <input type="hidden" id="key-input" />
+        <div class="hint">Pick two distinct primes p and q, plus a public exponent e that's coprime to (p-1)(q-1). The simulator computes n, phi, and d automatically. For printable ASCII to encrypt cleanly, n must be > 127.</div>
+    `;
+    computeRsa();
+}
+
+async function computeRsa() {
+    const p = parseInt(document.getElementById('rsa-p')?.value || '0');
+    const q = parseInt(document.getElementById('rsa-q')?.value || '0');
+    const e = parseInt(document.getElementById('rsa-e')?.value || '0');
+    const out = document.getElementById('rsa-computed');
+    const hidden = document.getElementById('key-input');
+    if (!out || !hidden) return;
+
+    if (!p || !q || !e) {
+        out.innerHTML = '<span style="color:var(--text-muted)">Enter p, q, and e to compute n, phi, d.</span>';
+        return;
+    }
+
+    const r = await apiPost('/api/rsa/compute', {p, q, e});
+    if (r.error) {
+        out.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(r.error)}</span>`;
+        hidden.value = '';
+        return;
+    }
+    out.innerHTML = `
+        <div><span style="color:var(--text-dim)">n = p × q =</span> <b style="color:var(--accent)">${r.n}</b></div>
+        <div><span style="color:var(--text-dim)">phi(n) = (p-1)(q-1) =</span> <b>${r.phi}</b></div>
+        <div><span style="color:var(--text-dim)">d = e⁻¹ mod phi =</span> <b style="color:var(--accent)">${r.d}</b></div>
+        <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)">
+            <span style="color:var(--text-dim)">Public key:</span> (e=${r.e}, n=${r.n})<br>
+            <span style="color:var(--text-dim)">Private key:</span> (d=${r.d}, n=${r.n})
+        </div>
+    `;
+    hidden.value = JSON.stringify({p, q, e});
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +250,7 @@ function renderPermutationInput(container) {
             <div class="perm-grid">
                 ${perm.map((v, i) => `
                     <div class="perm-cell">
-                        <div class="perm-cell-label">pos ${i}</div>
+                        <div class="perm-cell-label">Position ${i}</div>
                         <input type="number" class="perm-cell-input" min="0" max="7" value="${v}" oninput="updatePermKey()" />
                     </div>
                 `).join('')}
@@ -225,8 +289,58 @@ function renderSubstitutionInput(container) {
 }
 
 // ---------------------------------------------------------------------------
-// Encrypt / decrypt.
+// Encrypt / decrypt with human-friendly error mapping.
 // ---------------------------------------------------------------------------
+
+function humanizeError(cipher, op, err) {
+    const e = (err || '').toLowerCase();
+    if (e.includes('not prime') || e.includes('p =') && e.includes('not prime')) {
+        if (e.includes('p =')) return `The value you entered for p is not a prime number. Try a prime like 11, 13, 17, 19, or 23.`;
+        if (e.includes('q =')) return `The value you entered for q is not a prime number. Try a prime like 11, 13, 17, 19, or 23.`;
+        return 'Both p and q must be prime numbers. Primes are numbers divisible only by 1 and themselves (2, 3, 5, 7, 11, 13, ...).';
+    }
+    if (e.includes('must be different primes')) {
+        return 'p and q must be different primes. Using the same prime twice makes RSA insecure.';
+    }
+    if (e.includes('not coprime') || e.includes('coprime')) {
+        return 'The public exponent e must be coprime with phi(n) = (p-1)(q-1). That means they share no common factors. Try e = 3, 5, 7, 11, 13, or 17.';
+    }
+    if (e.includes('too small') && e.includes('n')) {
+        return 'The product n = p × q is too small — it must be greater than 127 so all printable ASCII characters can be encrypted. Try larger primes.';
+    }
+    if (e.includes('byte') && e.includes('>=') && e.includes('n')) {
+        return `Your message contains a character whose code is larger than n. Use larger primes so n > 255, or remove non-ASCII characters from your message.`;
+    }
+    if (e.includes('no modular inverse')) {
+        return 'Could not compute the private key d. This happens when e is not coprime with phi(n). Try a different value for e.';
+    }
+    if (e.includes('invalid literal for int') || e.includes('could not convert')) {
+        return `The key format is wrong. ${cipher === 'shift' ? 'For Shift, the key must be a number like 7.' : cipher === 'rail_fence' ? 'For Rail Fence, the key must be a number like 3.' : 'Check the key format hint above.'}`;
+    }
+    if (e.includes('must be 8') || e.includes('length') && e.includes('8')) {
+        return 'The Feistel key must be an 8-bit binary string (eight 0s and 1s), like "11001010".';
+    }
+    if (e.includes('must be 16') || e.includes('length') && e.includes('16')) {
+        return 'The AES key must be a 16-bit binary string (sixteen 0s and 1s), like "1100101011110000".';
+    }
+    if (e.includes('index out of range') || e.includes('list index')) {
+        return 'One of the permutation values is out of range. Each value must be between 0 and 7.';
+    }
+    if (e.includes('key') && e.includes('not found') || e.includes('keyerror')) {
+        return 'The substitution map is missing an entry. Click "Random" to generate a complete map.';
+    }
+    if (e.includes('invalid') && e.includes('hex')) {
+        return 'The ciphertext is not valid hex. It should look like "5E 51 4D 4D 72 2B" — pairs of hex digits separated by spaces.';
+    }
+    if (e.includes('seed') && e.includes('length') || e.includes('taps')) {
+        return 'The LFSR configuration is invalid. Tap positions must be smaller than the seed length.';
+    }
+    if (e.includes('empty') || e.includes('no input')) {
+        return 'Please enter both a message and a key.';
+    }
+    // Fallback: show the raw error but in friendlier wording.
+    return `Something went wrong: ${err}. Check the key format hint above and try again.`;
+}
 
 function getKeyForRequest() {
     const hidden = document.getElementById('key-input');
@@ -242,10 +356,14 @@ function getKeyForRequest() {
     if (selectedCipher === 'substitution') {
         try { return JSON.parse(raw); } catch { return null; }
     }
-    if (selectedCipher === 'shift' || selectedCipher === 'rail_fence') {
-        return parseInt(raw);
+    if (selectedCipher === 'rsa') {
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
     }
-    if (selectedCipher === 'rsa') return null;
+    if (selectedCipher === 'shift' || selectedCipher === 'rail_fence') {
+        const v = parseInt(raw);
+        return isNaN(v) ? null : v;
+    }
     return raw;
 }
 
@@ -257,8 +375,12 @@ async function encrypt() {
         showEncryptError('Please enter a valid key first.');
         return;
     }
+    if (selectedCipher === 'rsa' && key === null) {
+        showEncryptError('Please enter valid p, q, and e values first.');
+        return;
+    }
     const r = await apiPost('/api/cipher/encrypt', {cipher: selectedCipher, text, key});
-    if (r.error) { showEncryptError(r.error); return; }
+    if (r.error) { showEncryptError(humanizeError(selectedCipher, 'encrypt', r.error)); return; }
     document.getElementById('encrypt-output').innerHTML = `
         <div class="output-block">${escapeHtml(r.ciphertext)}
             <button class="copy-btn" onclick="copyText('${r.ciphertext.replace(/'/g, "\\'")}')"><i class="fa-solid fa-copy"></i></button>
@@ -274,8 +396,12 @@ async function decrypt() {
         showDecryptError('Please enter a valid key first.');
         return;
     }
+    if (selectedCipher === 'rsa' && key === null) {
+        showDecryptError('Please enter valid p, q, and e values first.');
+        return;
+    }
     const r = await apiPost('/api/cipher/decrypt', {cipher: selectedCipher, text, key});
-    if (r.error) { showDecryptError(r.error); return; }
+    if (r.error) { showDecryptError(humanizeError(selectedCipher, 'decrypt', r.error)); return; }
     document.getElementById('decrypt-output').innerHTML = `
         <div class="output-block">${escapeHtml(r.plaintext_text)}
             <button class="copy-btn" onclick="copyText('${r.plaintext_text.replace(/'/g, "\\'")}')"><i class="fa-solid fa-copy"></i></button>
@@ -297,7 +423,13 @@ function showDecryptError(msg) {
 async function generateKey() {
     const r = await apiPost('/api/cipher/generate-key', {cipher: selectedCipher});
     if (r.error) return;
-    if (selectedCipher === 'stream') {
+    if (selectedCipher === 'rsa') {
+        // Populate the p, q, e fields and recompute.
+        document.getElementById('rsa-p').value = r.key.p;
+        document.getElementById('rsa-q').value = r.key.q;
+        document.getElementById('rsa-e').value = r.key.e;
+        computeRsa();
+    } else if (selectedCipher === 'stream') {
         lfsrState.bits = r.key.seed.split('');
         lfsrState.taps = new Set(r.key.taps);
         renderLfsrInput(document.getElementById('key-container'));

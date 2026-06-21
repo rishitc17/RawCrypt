@@ -157,6 +157,12 @@ h1, h2, h3, h4 {
 a { color: var(--accent); text-decoration: none; transition: color 200ms; }
 a:hover { color: var(--accent-deep); }
 
+/* Buttons that are also links should not have their text colour overridden on hover */
+a.btn, a.btn:hover { color: inherit; }
+a.btn-primary, a.btn-primary:hover { color: var(--accent-text); }
+a.btn-outline:hover { color: var(--accent); }
+a.btn-ghost:hover { color: var(--text); }
+
 code, pre, .mono {
     font-family: var(--font-mono);
     font-size: 0.92em;
@@ -197,6 +203,50 @@ input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+input[type="number"] {
+    text-align: center;
+    -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    cursor: pointer;
+    width: 18px;
+    height: 100%;
+    background: var(--bg-panel-2);
+    border-left: 1px solid var(--border);
+    position: relative;
+}
+input[type="number"]::-webkit-inner-spin-button:before {
+    content: '\f077';  /* fa-chevron-up */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 8px;
+    color: var(--text-muted);
+    position: absolute;
+    top: 4px;
+    left: 0;
+    right: 0;
+    text-align: center;
+}
+input[type="number"]::-webkit-inner-spin-button:after {
+    content: '\f078';  /* fa-chevron-down */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 8px;
+    color: var(--text-muted);
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    text-align: center;
+}
+input[type="number"]::-webkit-inner-spin-button:hover:before,
+input[type="number"]::-webkit-inner-spin-button:hover:after {
+    color: var(--accent);
 }
 
 /* ---- Brand mark -------------------------------------------------------- */
@@ -321,14 +371,22 @@ input:focus, select:focus, textarea:focus {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 0.65rem;
-    color: var(--text-dim);
+    font-size: 0.7rem;
     pointer-events: none;
     width: 14px;
     text-align: center;
+    transition: opacity 200ms;
 }
-.theme-slider .ico.sun { left: 5px; }
-.theme-slider .ico.moon { right: 5px; }
+.theme-slider .ico.sun { left: 4px; color: #f59e0b; }     /* always-visible golden sun */
+.theme-slider .ico.moon { right: 4px; color: #c4b5fd; }    /* always-visible lavender moon */
+:root[data-theme="light"] .theme-slider .ico.sun { opacity: 1; }
+:root[data-theme="light"] .theme-slider .ico.moon { opacity: 0.4; }
+:root[data-theme="dark"] .theme-slider .ico.sun { opacity: 0.4; }
+:root[data-theme="dark"] .theme-slider .ico.moon { opacity: 1; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-slider .ico.sun { opacity: 0.4; }
+    :root:not([data-theme="light"]) .theme-slider .ico.moon { opacity: 1; }
+}
 
 /* ---- Buttons ----------------------------------------------------------- */
 
@@ -413,6 +471,7 @@ input:focus, select:focus, textarea:focus {
 }
 .panel.collapsed .panel-header .chevron { transform: rotate(-90deg); }
 .panel-body {
+    padding: 20px;
     transition: max-height 250ms ease, padding 250ms ease, opacity 200ms;
     overflow: hidden;
 }
@@ -690,7 +749,7 @@ footer .container {
     flex-wrap: wrap;
 }
 
-/* ---- Tooltip — wide, readable, high z-index --------------------------- */
+/* ---- Tooltip — wide, readable, high z-index, edge-aware ---------------- */
 
 .tooltip {
     position: relative;
@@ -729,8 +788,49 @@ footer .container {
     border-top-color: var(--text);
 }
 .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
-/* When inside a panel, make sure tooltip shows above panel header */
-.panel-header .tooltip .tooltip-text { z-index: 10000; }
+
+/* Edge-aware tooltips: when a tooltip is inside a panel header (which
+   sits at the top of a panel), the tooltip would be hidden above the
+   viewport. Flip it below the trigger instead. */
+.panel-header .tooltip .tooltip-text {
+    bottom: auto;
+    top: calc(100% + 10px);
+    z-index: 10000;
+}
+.panel-header .tooltip .tooltip-text::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--text);
+}
+
+/* Inside the controls panel (right side of sim layout), tooltips would
+   overflow the left edge. Push them right-aligned. */
+.sim-controls .tooltip .tooltip-text {
+    left: auto;
+    right: 0;
+    transform: none;
+    width: 280px;
+}
+.sim-controls .tooltip .tooltip-text::after {
+    left: auto;
+    right: 14px;
+    transform: none;
+}
+
+/* Usage chart tooltips — flip below the row, restore panel padding */
+.usage-row .tooltip-text {
+    bottom: auto;
+    top: calc(100% + 8px);
+    z-index: 10000;
+    width: 260px;
+}
+.usage-row .tooltip-text::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--text);
+}
 
 /* ---- Badges & tags ----------------------------------------------------- */
 
@@ -1255,14 +1355,14 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---- Visual usage chart ------------------------------------------------ */
 
-.usage-chart { display: flex; flex-direction: column; gap: 12px; }
+.usage-chart { display: flex; flex-direction: column; gap: 16px; }
 .usage-row {
     display: grid;
-    grid-template-columns: 120px 1fr auto;
+    grid-template-columns: 110px 1fr;
     gap: 14px;
     align-items: center;
     position: relative;
-    padding: 2px 0;
+    padding: 4px 0;
 }
 .usage-row .name {
     font-family: var(--font-display);
@@ -1271,8 +1371,13 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text);
     text-transform: capitalize;
 }
+.usage-row .bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
 .usage-row .bar-track {
-    height: 24px;
+    height: 14px;
     background: var(--bg-panel-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-xs);
@@ -1282,24 +1387,17 @@ input[type="range"]::-moz-range-thumb {
 .usage-row .bar-fill {
     height: 100%;
     transition: width 500ms cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
     border-radius: var(--radius-xs) 0 0 var(--radius-xs);
 }
-.usage-row .bar-fill.secondary {
-    position: absolute;
-    top: 0; left: 0;
-    opacity: 0.5;
-    border-right: 2px solid var(--text);
-}
-.usage-row .pct {
+.usage-row .bar-label {
     font-family: var(--font-mono);
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-size: 0.7rem;
     color: var(--text-muted);
-    min-width: 44px;
-    text-align: right;
+    margin-bottom: 1px;
+    display: flex;
+    justify-content: space-between;
 }
-.usage-row:hover .pct { color: var(--accent); }
+.usage-row .bar-label .right { color: var(--text-dim); }
 .usage-row .tooltip-text { width: 260px; }
 .usage-row .tooltip-text .row {
     display: flex;
@@ -1515,15 +1613,20 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text-dim);
 }
 .perm-input .perm-cell-input {
-    height: 44px;
+    height: 48px;
     text-align: center;
     font-family: var(--font-mono);
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 700;
     padding: 0;
     border: 2px solid var(--border-strong);
     border-radius: var(--radius-xs);
     background: var(--bg-panel);
+    color: var(--text);
+    /* ensure the number is vertically centered */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ---- Wiki -------------------------------------------------------------- */

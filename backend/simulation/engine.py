@@ -31,9 +31,77 @@ SIM_DIR = os.path.dirname(os.path.abspath(__file__))
 if SIM_DIR not in sys.path:
     sys.path.insert(0, SIM_DIR)
 
-from cipher_meta import CIPHER_REGISTRY, sample_key_str
+from cipher_meta import CIPHER_REGISTRY, sample_key_str, configure_rsa, get_rsa_instance
 from attack_meta import ATTACK_REGISTRY, make_cipher_handle
 from agent import Communicator, Attacker
+
+
+# ---------------------------------------------------------------------------
+# Load the agent-name and message-sentence corpuses from disk.
+# ---------------------------------------------------------------------------
+
+_NAMES_PATH = os.path.join(SIM_DIR, "names.txt")
+_SENTENCES_PATH = os.path.join(SIM_DIR, "sentences.txt")
+
+
+def _load_names() -> list[str]:
+    """Load the agent name pool. Falls back to a small default if missing."""
+    try:
+        with open(_NAMES_PATH, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    except Exception:
+        return ["Alice", "Bob", "Carol", "Dave", "Erin", "Frank", "Grace",
+                "Heidi", "Ivan", "Judy"]
+
+
+def _load_sentences() -> list[str]:
+    """Load the message corpus. Falls back to a small default if missing."""
+    try:
+        with open(_SENTENCES_PATH, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    except Exception:
+        return ["Hello, can you hear me?", "The package has arrived.",
+                "Meet me at noon by the old church."]
+
+
+_NAMES_POOL = _load_names()
+_SENTENCES_POOL = _load_sentences()
+
+
+def _random_rsa_params(rng: random.Random):
+    """Pick random small primes p, q (distinct) and a valid e.
+
+    The primes are drawn from a small list so the toy RSA stays fast and
+    the modulus stays small enough that printable ASCII (< 127) always
+    encrypts cleanly. We require n > 127.
+    """
+    # Small primes > 11 — keeps n in a comfortable range (130..~4000).
+    small_primes = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59,
+                    61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109,
+                    113, 127, 131, 137, 139, 149, 151, 157, 163, 167,
+                    173, 179, 181, 191, 193, 197, 199]
+    while True:
+        p = rng.choice(small_primes)
+        q = rng.choice(small_primes)
+        if p == q:
+            continue
+        n = p * q
+        if n <= 127:
+            continue
+        phi = (p - 1) * (q - 1)
+        # Pick a random e coprime to phi. Common choices: 3, 5, 7, 11, 13, 17.
+        candidates = [e for e in (3, 5, 7, 11, 13, 17, 19, 23)
+                      if _gcd(e, phi) == 1]
+        if not candidates:
+            continue
+        e = rng.choice(candidates)
+        return p, q, e
+
+
+def _gcd(a: int, b: int) -> int:
+    while b:
+        a, b = b, a % b
+    return a
 
 
 # ---------------------------------------------------------------------------
@@ -104,17 +172,45 @@ class Simulation:
     ):
         if seed is not None:
             random.seed(seed)
+        self._rng = random.Random(seed) if seed is not None else random.Random()
 
         self.tick: int = 0
         self.attacker_temperature = attacker_temperature
         self.communicator_temperature = communicator_temperature
+
+        # Generate fresh RSA params for this simulation run.
+        p, q, e = _random_rsa_params(self._rng)
+        try:
+            configure_rsa(p, q, e)
+        except Exception:
+            # Fall back to the spec defaults if something goes wrong.
+            configure_rsa(11, 13, 7)
+        self.rsa_params = {"p": get_rsa_instance().p,
+                           "q": get_rsa_instance().q,
+                           "e": get_rsa_instance().e,
+                           "n": get_rsa_instance().n,
+                           "phi": get_rsa_instance().phi,
+                           "d": get_rsa_instance().d}
+
+        # Pick distinct names from the loaded corpus.
+        name_pool = list(_NAMES_POOL)
+        self._rng.shuffle(name_pool)
+        comm_names = name_pool[:num_communicators]
+        atk_names = name_pool[num_communicators:num_communicators + num_attackers]
+        # If the pool is too small, fall back to indexed names.
+        while len(comm_names) < num_communicators:
+            comm_names.append(f"Agent-{len(comm_names)}")
+        while len(atk_names) < num_attackers:
+            atk_names.append(f"Hacker-{len(atk_names)}")
+
         self.communicators: list[Communicator] = [
-            Communicator(name=self._comm_name(i),
-                         temperature=communicator_temperature)
+            Communicator(name=comm_names[i],
+                         temperature=communicator_temperature,
+                         message_corpus=tuple(_SENTENCES_POOL))
             for i in range(num_communicators)
         ]
         self.attackers: list[Attacker] = [
-            Attacker(name=self._atk_name(i),
+            Attacker(name=atk_names[i],
                      temperature=attacker_temperature)
             for i in range(num_attackers)
         ]

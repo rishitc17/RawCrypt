@@ -1,10 +1,32 @@
 import utils
 
 
+def is_prime(n: int) -> bool:
+    """Trial-division primality test. Fine for small n (< 10^6)."""
+    if n < 2:
+        return False
+    if n < 4:
+        return True
+    if n % 2 == 0:
+        return False
+    i = 3
+    while i * i <= n:
+        if n % i == 0:
+            return False
+        i += 2
+    return True
+
+
+def gcd(a: int, b: int) -> int:
+    while b:
+        a, b = b, a % b
+    return a
+
+
 class RSA:
     # Toy RSA cipher.
     #
-    # Inputs (per CIPHERS.md):
+    # Defaults follow CIPHERS.md:
     #   * p = 11, q = 13  →  n = 143,  phi(n) = 120
     #   * e = 7           (gcd(7, 120) = 1)
     #   * d = e^-1 mod phi(n) = 103   (because 7 * 103 = 721 = 6 * 120 + 1)
@@ -15,20 +37,43 @@ class RSA:
     # Encryption: c = m^e mod n
     # Decryption: m = c^d mod n
     #
-    # Block size: 8 bits per character (ASCII byte). Because n = 143 < 256,
-    # any plaintext byte >= 143 wraps around and is not recoverable — this
-    # is a known limitation of the toy parameters from CIPHERS.md and is
-    # fine for the educational ASCII range (printable ASCII: 32–126).
+    # Block size: 8 bits per character (ASCII byte). Because the default
+    # n = 143 < 256, any plaintext byte >= 143 wraps around and is not
+    # recoverable — this is a known limitation of the toy parameters and
+    # is fine for the educational ASCII range (printable ASCII: 32-126).
 
     DEFAULT_P = 11
     DEFAULT_Q = 13
     DEFAULT_E = 7
 
     def __init__(self, p: int = DEFAULT_P, q: int = DEFAULT_Q, e: int = DEFAULT_E):
+        # Validate inputs.
+        if p == q:
+            raise ValueError("p and q must be different primes")
+        if not is_prime(p):
+            raise ValueError(f"p = {p} is not prime")
+        if not is_prime(q):
+            raise ValueError(f"q = {q} is not prime")
+        n = p * q
+        if n < 256:
+            # Not an error — just a limitation. Printable ASCII (32-126)
+            # still works as long as n > 126.
+            if n <= 126:
+                raise ValueError(
+                    f"n = p*q = {n} is too small — must be > 126 to encrypt "
+                    f"printable ASCII. Try larger primes."
+                )
+        phi = (p - 1) * (q - 1)
+        if gcd(e, phi) != 1:
+            raise ValueError(
+                f"e = {e} is not coprime with phi(n) = {phi}. "
+                f"Pick a different e."
+            )
+
         self.p = p
         self.q = q
-        self.n = p * q
-        self.phi = (p - 1) * (q - 1)
+        self.n = n
+        self.phi = phi
         self.e = e
         self.d = self._modular_inverse(e, self.phi)
 
@@ -59,6 +104,12 @@ class RSA:
         ciphertext_bytes = []
         for byte in plaintext_bytes:
             m = int(byte, 2)
+            if m >= self.n:
+                raise ValueError(
+                    f"Plaintext byte {m} ('{chr(m) if 32 <= m < 127 else '?'}') "
+                    f"is >= n = {self.n}. Use larger primes so n > 255, or "
+                    f"stick to characters with code < {self.n}."
+                )
             c = pow(m, self.e, self.n)
             ciphertext_bytes.append(format(c, "08b"))
 
