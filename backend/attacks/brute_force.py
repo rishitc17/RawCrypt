@@ -17,7 +17,7 @@ from base import Attack, AttackResult, CipherHandle
 class BruteForce(Attack):
     name = "brute_force"
     cost = 4
-    applicable_to = ("shift", "rail_fence", "feistel", "aes")
+    applicable_to = ("shift", "rail_fence", "feistel", "aes", "permutation")
 
     # Score threshold above which a decrypted candidate is accepted as plaintext.
     # Tuned to accept short English phrases (~0.20) while rejecting random

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RawCrypt — Learn Cryptography by Watching Agents Battle</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="navbar-inner">
+        <a href="/" class="brand">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>RawCrypt</span>
+        </a>
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> Simulation</a>
+            <a href="/playground"><i class="fa-solid fa-flask"></i> Playground</a>
+            <a href="/wiki"><i class="fa-solid fa-book"></i> Wiki</a>
+            <button class="theme-toggle" aria-label="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <canvas id="matrix-canvas"></canvas>
+    <div class="hero-content">
+        <h1>Watch cryptography <span class="accent">come alive</span>.</h1>
+        <p>Spies send secret messages. Hackers try to break them. Strategies evolve in real time. Learn the maths behind every cipher by watching the drama unfold.</p>
+        <div class="hero-cta">
+            <a href="/simulation" class="btn btn-primary">
+                <i class="fa-solid fa-play"></i> Enter the simulation
+            </a>
+            <a href="/playground" class="btn btn-secondary">
+                <i class="fa-solid fa-flask"></i> Try the ciphers
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="section-header">
+            <h2>What is RawCrypt?</h2>
+            <p>A live, multi-agent playground where communicators encrypt, attackers intercept, and everyone learns from their mistakes.</p>
+        </div>
+        <div class="feature-grid">
+            <a href="/simulation" class="feature-card card-hover">
+                <i class="fa-solid fa-users"></i>
+                <h3>Live agent battle</h3>
+                <p>Watch 4-10 communicator agents exchange messages with 9 different ciphers while 1-5 attackers try to break them in real time.</p>
+            </a>
+            <a href="/simulation" class="feature-card card-hover">
+                <i class="fa-solid fa-chart-line"></i>
+                <h3>Evolving strategies</h3>
+                <p>Agents learn from their hits and misses. Communicators abandon broken ciphers; attackers double down on what works.</p>
+            </a>
+            <a href="/playground" class="feature-card card-hover">
+                <i class="fa-solid fa-key"></i>
+                <h3>Hands-on ciphers</h3>
+                <p>Encrypt and decrypt your own messages with shift, Vigenere, Feistel, AES, RSA, and more — with guided key help.</p>
+            </a>
+            <a href="/wiki" class="feature-card card-hover">
+                <i class="fa-solid fa-book"></i>
+                <h3>Crypto wiki</h3>
+                <p>Confused by terms like "plaintext", "frequency analysis", or "LFSR"? Look them up in our teen-friendly wiki.</p>
+            </a>
+            <a href="/simulation" class="feature-card card-hover">
+                <i class="fa-solid fa-mobile-screen"></i>
+                <h3>Spy on the agents</h3>
+                <p>Click any communicator to open their phone and read every encrypted message they've sent — and see which got cracked.</p>
+            </a>
+            <a href="/simulation" class="feature-card card-hover">
+                <i class="fa-solid fa-skull-crossbones"></i>
+                <h3>4 real attacks</h3>
+                <p>Brute force, frequency analysis, known-plaintext, and dictionary attacks — implemented honestly, not faked.</p>
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="section" style="background: var(--bg-elev-2);">
+    <div class="container">
+        <div class="section-header">
+            <h2>How it works</h2>
+            <p>The scoring method that keeps every cipher in play.</p>
+        </div>
+        <div class="grid-3">
+            <div class="card">
+                <div style="font-size: 2.5rem; color: var(--accent); margin-bottom: 12px;">
+                    <i class="fa-solid fa-1"></i>
+                </div>
+                <h3>Cost vs security</h3>
+                <p>Every cipher has a cost (1-10) and a security rating (1-10). Communicators weigh them based on the message's security level — like choosing between a bike lock and a bank vault.</p>
+            </div>
+            <div class="card">
+                <div style="font-size: 2.5rem; color: var(--accent); margin-bottom: 12px;">
+                    <i class="fa-solid fa-2"></i>
+                </div>
+                <h3>Empirical learning</h3>
+                <p>Agents track which ciphers get broken and which attacks succeed. They update their strategy with exponential moving average — recent results matter more than ancient history.</p>
+            </div>
+            <div class="card">
+                <div style="font-size: 2.5rem; color: var(--accent); margin-bottom: 12px;">
+                    <i class="fa-solid fa-3"></i>
+                </div>
+                <h3>Softmax sampling</h3>
+                <p>Agents pick actions via a softmax over utilities, so they keep exploring instead of locking onto one option. That's why you'll see 7-9 ciphers in use — not all RSA.</p>
+            </div>
+        </div>
+        <div class="text-center mt-4">
+            <a href="/simulation" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-arrow-right"></i> See it in action
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="section-header">
+            <h2>The 9 ciphers</h2>
+            <p>From the trivial Caesar shift to toy RSA — all implemented from scratch in Python.</p>
+        </div>
+        <div class="grid-3">
+            <div class="card"><h3><span class="badge badge-accent">cost 1</span> <span class="badge badge-danger">sec 1</span> Shift</h3><p>The Caesar cipher: every byte shifted by a fixed amount. Trivial to brute-force.</p></div>
+            <div class="card"><h3><span class="badge badge-accent">cost 1</span> <span class="badge badge-warning">sec 2</span> Rail Fence</h3><p>A transposition cipher that writes the message in a zig-zag pattern across N rails.</p></div>
+            <div class="card"><h3><span class="badge badge-accent">cost 2</span> <span class="badge badge-warning">sec 3</span> Permutation</h3><p>Each 8-byte block has its bytes rearranged according to a fixed permutation map.</p></div>
+            <div class="card"><h3><span class="badge badge-accent">cost 2</span> <span class="badge badge-warning">sec 3</span> Vigenère</h3><p>A polyalphabetic cipher that uses a repeating key — defeated the frequency analysis for 300 years.</p></div>
+            <div class="card"><h3><span class="badge badge-accent">cost 3</span> <span class="badge badge-warning">sec 4</span> Substitution</h3><p>Each printable byte maps to a different byte. 95! possible keys, but frequency analysis breaks it.</p></div>
+            <div class="card"><h3><span class="badge badge-accent">cost 2</span> <span class="badge badge-success">sec 5</span> Stream</h3><p>An LFSR generates a pseudo-random keystream, XORed with the plaintext byte-by-byte.</p></div>
+            <div class="card"><h3><span class="badge badge-accent">cost 3</span> <span class="badge badge-success">sec 6</span> Feistel</h3><p>A 4-round toy Feistel network with XOR + nibble-swap. Same circuit encrypts and decrypts.</p></div>
+            <div class="card"><h3><span class="badge badge-warning">cost 5</span> <span class="badge badge-success">sec 8</span> AES</h3><p>A 2-round toy AES with 16-bit blocks. Real AES uses 128-bit blocks and 10-14 rounds.</p></div>
+            <div class="card"><h3><span class="badge badge-danger">cost 8</span> <span class="badge badge-success">sec 10</span> RSA</h3><p>The only asymmetric cipher. Based on the difficulty of factoring n = p × q. Unbreakable in-sim.</p></div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="brand">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>RawCrypt</span>
+    </div>
+    <p>An educational cryptography playground. Built for curious teenagers.</p>
+</footer>
+
+<script src="/js/common.js"></script>
+<script src="/js/matrix.js"></script>
+</body>
+</html>

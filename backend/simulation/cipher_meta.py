@@ -86,6 +86,16 @@ def _permutation_key_gen() -> list[int]:
     return perm
 
 
+def _permutation_enumerate_keys() -> Iterator[list[int]]:
+    """Enumerate all 8! = 40,320 permutations of an 8-byte block.
+
+    This makes the cipher attackable by BruteForce (within budget).
+    """
+    import itertools
+    for perm in itertools.permutations(range(8)):
+        yield list(perm)
+
+
 def _substitution_key_gen() -> dict:
     sources = [format(b, "08b") for b in range(32, 127)]
     dests = sources.copy()
@@ -286,7 +296,7 @@ CIPHER_REGISTRY: dict[str, CipherMeta] = {
         key_generator=_permutation_key_gen,
         encrypt=_permutation_encrypt,
         decrypt=_permutation_decrypt,
-        enumerate_keys=None,  # 8! = 40320 keys, feasible but we leave it to KPA
+        enumerate_keys=_permutation_enumerate_keys,  # 8! = 40320 keys, feasible
         description="Block permutation of 8 bytes",
     ),
     "vigenere": CipherMeta(

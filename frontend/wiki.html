@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiki — RawCrypt</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="navbar-inner">
+        <a href="/" class="brand">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>RawCrypt</span>
+        </a>
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> Simulation</a>
+            <a href="/playground"><i class="fa-solid fa-flask"></i> Playground</a>
+            <a href="/wiki"><i class="fa-solid fa-book"></i> Wiki</a>
+            <button class="theme-toggle" aria-label="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</nav>
+
+<div class="page-header">
+    <h1>Crypto Wiki</h1>
+    <p>Look up any cryptography term in plain English. Click around — every term links to its relatives.</p>
+</div>
+
+<div class="container">
+    <div class="wiki-layout">
+        <div class="wiki-sidebar" id="wiki-sidebar">
+            <div class="empty-state"><i class="fa-solid fa-spinner spinner"></i></div>
+        </div>
+        <div class="wiki-content" id="wiki-content">
+            <div class="empty-state"><i class="fa-solid fa-spinner spinner"></i></div>
+        </div>
+    </div>
+</div>
+
+<footer style="margin-top:60px">
+    <div class="brand">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>RawCrypt</span>
+    </div>
+    <p>Knowledge is the best cipher.</p>
+</footer>
+
+<script src="/js/common.js"></script>
+<script src="/js/wiki.js"></script>
+</body>
+</html>
