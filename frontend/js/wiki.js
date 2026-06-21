@@ -3,6 +3,8 @@
 let wikiData = null;
 let currentTerm = null;
 
+const CIPHER_SLUGS = ['shift','rail_fence','permutation','vigenere','substitution','stream','feistel','aes','rsa'];
+
 async function loadWiki() {
     wikiData = await apiGet('/api/wiki');
     renderSidebar();
@@ -51,11 +53,19 @@ async function showTerm(slug) {
 
     const bodyHtml = (t.body || '').split(/\n\n+/).map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
 
+    // If this is a cipher page, add a "Try in Playground" link.
+    const playgroundLink = CIPHER_SLUGS.includes(slug)
+        ? `<a href="/playground#${slug}" class="btn btn-primary btn-sm" style="margin-top:16px">
+             <i class="fa-solid fa-flask"></i> Try this cipher in the Playground
+           </a>`
+        : '';
+
     document.getElementById('wiki-content').innerHTML = `
         <h1><i class="fa-solid ${t.icon}"></i> ${t.title}</h1>
         <div class="summary">${t.summary}</div>
         <div class="body">${bodyHtml}</div>
         ${t.example ? `<div class="example-block">${escapeHtml(t.example)}</div>` : ''}
+        ${playgroundLink}
         <div class="related">
             <h4>Related terms</h4>
             <div class="related-tags">${related}</div>

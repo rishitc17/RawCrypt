@@ -6,9 +6,7 @@
     <title>RawCrypt — Watch cryptography come alive</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -34,13 +32,13 @@
 <section class="hero">
     <canvas id="matrix-canvas"></canvas>
     <div class="hero-content">
-        <div class="section-marker">DOSSIER &middot; FIELD MANUAL</div>
-        <h1>Secrets get <span class="accent">sent</span>.<br>Hackers get <span class="strike">caught</span> <span class="accent">busy</span>.</h1>
-        <p class="lead">A live, multi-agent battlefield where communicators encrypt, attackers intercept, and every cipher's reputation is on the line. Watch the maths happen.</p>
+        <div class="eyebrow">Cryptography, made visible</div>
+        <h1>Secrets get <span class="accent">sent</span>.<br>Hackers get <span class="accent">busy</span>.</h1>
+        <p class="lead">A live, multi-agent playground where communicators encrypt, hackers intercept, and every cipher's reputation is on the line. Watch the maths happen.</p>
         <div class="hero-meta">
             <span><b>9</b> ciphers</span>
             <span><b>4</b> attacks</span>
-            <span>up to <b>10</b> spies</span>
+            <span>up to <b>10</b> communicators</span>
             <span>up to <b>5</b> hackers</span>
         </div>
         <div class="hero-cta">
@@ -57,32 +55,32 @@
 <section class="section">
     <div class="container">
         <div class="section-header">
-            <div class="section-marker">01 &middot; THE PREMISE</div>
-            <h2 class="field-title">A war of wits, waged in math.</h2>
-            <p class="field-subtitle">Spies send encrypted messages across a shared channel. Hackers listen in and try to crack them. Both sides learn from every win and every loss. Watch their strategies drift in real time.</p>
+            <div class="eyebrow">The premise</div>
+            <h2>A battle of wits, waged in math.</h2>
+            <p style="color:var(--text-muted);font-size:1.1rem;max-width:60ch">Communicators send encrypted messages across a shared channel. Hackers listen in and try to crack them. Both sides learn from every win and every loss. Watch their strategies drift in real time.</p>
         </div>
 
-        <div class="manifesto">
-            <div class="manifesto-item">
-                <div class="num">— PREMISE 01</div>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="num">01</div>
                 <h3>Cost vs security</h3>
-                <p>Every cipher has a cost (1-10) and a security rating (1-10). Spies pick the cheapest cipher that gets the job done. Would you bolt your diary with a bank vault?</p>
+                <p>Every cipher has a cost (1-10) and a security rating (1-10). Communicators pick the cheapest cipher that gets the job done. Would you bolt your diary with a bank vault?</p>
                 <a href="/wiki/cipher" class="more">Read more <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="manifesto-item">
-                <div class="num">— PREMISE 02</div>
+            <div class="feature-card">
+                <div class="num">02</div>
                 <h3>Learning from scars</h3>
-                <p>Every time a cipher gets cracked, the spy who used it becomes less likely to use it again. Every time an attack lands, the hacker reaches for it more often.</p>
+                <p>Every time a cipher gets cracked, the communicator who used it becomes less likely to use it again. Every time an attack lands, the hacker reaches for it more often.</p>
                 <a href="/wiki/attack" class="more">Read more <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="manifesto-item">
-                <div class="num">— PREMISE 03</div>
+            <div class="feature-card">
+                <div class="num">03</div>
                 <h3>Always exploring</h3>
                 <p>Agents never fully commit to one cipher or one attack. They keep exploring the alternatives so the leaderboard keeps shifting. Boring would be everyone picking RSA.</p>
                 <a href="/simulation" class="more">See it live <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="manifesto-item">
-                <div class="num">— PREMISE 04</div>
+            <div class="feature-card">
+                <div class="num">04</div>
                 <h3>Real cryptography</h3>
                 <p>The attacks are honest. Brute force really tries every key. Frequency analysis really ranks byte frequencies. The dictionary attack really factors the toy RSA modulus n=143.</p>
                 <a href="/playground" class="more">Try them yourself <i class="fa-solid fa-arrow-right"></i></a>
@@ -94,130 +92,101 @@
 <section class="section">
     <div class="container">
         <div class="section-header">
-            <div class="section-marker">02 &middot; THE ARSENAL</div>
-            <h2 class="field-title">Nine ciphers, four attacks.</h2>
-            <p class="field-subtitle">From the 2000-year-old Caesar shift to toy RSA — every cipher is implemented from scratch in Python. Click any to read its wiki page.</p>
+            <div class="eyebrow">The arsenal — nine ciphers</div>
+            <h2>From Caesar to RSA.</h2>
+            <p style="color:var(--text-muted);font-size:1.1rem;max-width:60ch">Every cipher is implemented from scratch in Python. Click any to read its wiki page.</p>
         </div>
 
-        <div class="cipher-roster">
-            <div class="cipher-roster-cell">
+        <div class="roster-grid">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-i-cursor"></i></div>
                 <div class="name">Shift</div>
                 <div class="desc">Caesar's classic. Each byte nudged forward by a fixed amount.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span>
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span>
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                </div>
-                <a href="/wiki/shift" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/shift">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-bars-staggered"></i></div>
                 <div class="name">Rail Fence</div>
                 <div class="desc">A zig-zag transposition. Cheap but predictable.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                </div>
-                <a href="/wiki/rail_fence" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/rail_fence">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-shuffle"></i></div>
                 <div class="name">Permutation</div>
                 <div class="desc">8 bytes get shuffled. 40,320 possible shuffles.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span>
-                </div>
-                <a href="/wiki/permutation" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/permutation">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-table-cells"></i></div>
                 <div class="name">Vigenère</div>
                 <div class="desc">A repeating-key cipher that fooled Europe for 300 years.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span>
-                </div>
-                <a href="/wiki/vigenere" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/vigenere">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-circle-half-stroke"></i></div>
                 <div class="name">Substitution</div>
                 <div class="desc">Every byte maps to another. Frequency analysis cracks it.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span>
-                </div>
-                <a href="/wiki/substitution" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/substitution">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-water"></i></div>
                 <div class="name">Stream</div>
                 <div class="desc">A pseudo-random keystream XORed with the message.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
-                </div>
-                <a href="/wiki/stream" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/stream">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-network-wired"></i></div>
                 <div class="name">Feistel</div>
                 <div class="desc">A 4-round toy network. Same circuit encrypts and decrypts.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
-                </div>
-                <a href="/wiki/feistel" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/feistel">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-shield-halved"></i></div>
                 <div class="name">AES</div>
                 <div class="desc">2-round toy AES. The real one has 10-14 rounds.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
-                </div>
-                <a href="/wiki/aes" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/aes">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="cipher-roster-cell">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-key"></i></div>
                 <div class="name">RSA</div>
                 <div class="desc">The only asymmetric cipher. Based on factoring big numbers.</div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">cost</span>
-                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span></div></div>
+                    <div class="meter">security <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
                 </div>
-                <div class="meter">
-                    <span class="annotation" style="font-size:0.7rem">sec</span>
-                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
-                </div>
-                <a href="/wiki/rsa" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="/wiki/rsa">Wiki <i class="fa-solid fa-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -226,26 +195,75 @@
 <section class="section">
     <div class="container">
         <div class="section-header">
-            <div class="section-marker">03 &middot; GET STARTED</div>
-            <h2 class="field-title">Three doors in.</h2>
-            <p class="field-subtitle">Each one teaches cryptography differently. Pick the one that fits your mood.</p>
+            <div class="eyebrow">The arsenal — four attacks</div>
+            <h2>How hackers fight back.</h2>
+            <p style="color:var(--text-muted);font-size:1.1rem;max-width:60ch">Every attack is implemented honestly — they actually run the cipher's own decrypt function and score the results.</p>
         </div>
 
-        <div class="manifesto">
-            <a href="/simulation" class="manifesto-item" style="text-decoration:none;color:inherit">
-                <div class="num">— DOOR A</div>
+        <div class="roster-grid">
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-hammer" style="color:var(--danger)"></i></div>
+                <div class="name">Brute Force</div>
+                <div class="desc">Try every possible key until one works. Slow but always succeeds eventually.</div>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot"></span></div></div>
+                </div>
+                <a href="/wiki/brute_force">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-chart-column" style="color:var(--danger)"></i></div>
+                <div class="name">Frequency</div>
+                <div class="desc">Use byte-frequency statistics to break substitution ciphers. The oldest trick in the book.</div>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot"></span><span class="dot"></span></div></div>
+                </div>
+                <a href="/wiki/frequency">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-magnifying-glass" style="color:var(--warning)"></i></div>
+                <div class="name">Known Plaintext</div>
+                <div class="desc">If you know part of the message (a "crib"), you can often recover the key directly.</div>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on" style="background:var(--warning)"></span><span class="dot on" style="background:var(--warning)"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                </div>
+                <a href="/wiki/known_plaintext">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="roster-card">
+                <div class="icon-row"><i class="fa-solid fa-book" style="color:var(--warning)"></i></div>
+                <div class="name">Dictionary</div>
+                <div class="desc">Try a small list of common, weak keys. Astonishingly effective against human-chosen passwords.</div>
+                <div class="meters">
+                    <div class="meter">cost <div class="dots"><span class="dot on" style="background:var(--warning)"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                </div>
+                <a href="/wiki/dictionary">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="section-header">
+            <div class="eyebrow">Get started</div>
+            <h2>Three doors in.</h2>
+            <p style="color:var(--text-muted);font-size:1.1rem;max-width:60ch">Each one teaches cryptography differently. Pick the one that fits your mood.</p>
+        </div>
+
+        <div class="doors-row">
+            <a href="/simulation" class="door-card">
+                <i class="fa-solid fa-door-open door-icon"></i>
                 <h3>The Simulation</h3>
                 <p>Watch live agents battle in real time. Spy on their phones. Read every encrypted message they send.</p>
                 <span class="more">Open <i class="fa-solid fa-arrow-right"></i></span>
             </a>
-            <a href="/playground" class="manifesto-item" style="text-decoration:none;color:inherit">
-                <div class="num">— DOOR B</div>
+            <a href="/playground" class="door-card">
+                <i class="fa-solid fa-door-closed door-icon"></i>
                 <h3>The Playground</h3>
                 <p>Encrypt your own messages with each cipher. Watch the maths happen step by step.</p>
                 <span class="more">Open <i class="fa-solid fa-arrow-right"></i></span>
             </a>
-            <a href="/wiki" class="manifesto-item" style="text-decoration:none;color:inherit">
-                <div class="num">— DOOR C</div>
+            <a href="/wiki" class="door-card">
+                <i class="fa-solid fa-book-open door-icon"></i>
                 <h3>The Wiki</h3>
                 <p>Plain-English explanations of every term. From plaintext to LFSR — no jargon left behind.</p>
                 <span class="more">Open <i class="fa-solid fa-arrow-right"></i></span>
@@ -256,13 +274,8 @@
 
 <footer>
     <div class="container">
-        <div>
-            <a href="/" class="brand-mark">
-                <span class="glyph">R</span>
-                <span class="word">Raw<b>Crypt</b></span>
-            </a>
-        </div>
-        <div class="annotation">FIELD MANUAL &middot; v1.0 &middot; BUILT FOR CURIOUS TEENAGERS</div>
+        <div class="brand-mark"><span class="glyph">R</span><span class="word">Raw<b>Crypt</b></span></div>
+        <div style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-dim)">Built for curious teenagers</div>
     </div>
 </footer>
 

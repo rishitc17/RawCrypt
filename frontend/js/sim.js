@@ -1,32 +1,20 @@
 // Simulation page logic.
-//
-// Connects to the WebSocket, renders the agent canvas, drives the controls,
-// log panel, phone modal, and attacker panel. Real-time updates flow in
-// via the WS; the phone and attacker modals refresh themselves on every
-// tick while open.
-
-// ---------------------------------------------------------------------------
-// Global state.
-// ---------------------------------------------------------------------------
 
 const state = {
     ws: null,
     running: false,
     config: {
-        num_communicators: 4,
-        num_attackers: 2,
-        attacker_temperature: 1.0,
-        communicator_temperature: 1.2,
+        num_communicators: 4, num_attackers: 2,
+        attacker_temperature: 1.0, communicator_temperature: 1.2,
         tick_interval: 0.9,
     },
     agents: [],
     events: [],
     stats: null,
     animations: [],
-    pendingAnimations: [],   // queued animations waiting for previous ones to finish
+    pendingAnimations: [],
     filters: { agent: '', cipher: '', attack: '', outcome: 'all' },
-    // Track currently-open modal so we can refresh it on tick.
-    openModal: null,        // {type: 'phone'|'attacker', name: string, contact?: string}
+    openModal: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -38,29 +26,31 @@ const ctx = canvas.getContext('2d');
 
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    const wrap = canvas.parentElement;
+    const rect = wrap.getBoundingClientRect();
+    canvas.width = Math.max(100, rect.width) * dpr;
+    canvas.height = Math.max(100, rect.height) * dpr;
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     layoutAgents();
 }
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('resize', () => { setTimeout(resizeCanvas, 50); });
 
 // ---------------------------------------------------------------------------
 // Agent layout.
 // ---------------------------------------------------------------------------
 
 function layoutAgents() {
-    const w = canvas.offsetWidth, h = canvas.offsetHeight;
+    const w = canvas.offsetWidth || 600;
+    const h = canvas.offsetHeight || 600;
     const cx = w / 2, cy = h / 2;
     const comms = state.agents.filter(a => a.role === 'communicator');
     const atks = state.agents.filter(a => a.role === 'attacker');
 
     const outerR = Math.min(w, h) * 0.38;
     comms.forEach((a, i) => {
-        const angle = (i / comms.length) * Math.PI * 2 - Math.PI / 2;
+        const angle = (i / Math.max(comms.length, 1)) * Math.PI * 2 - Math.PI / 2;
         a.x = cx + Math.cos(angle) * outerR;
         a.y = cy + Math.sin(angle) * outerR;
     });
@@ -74,6 +64,7 @@ function layoutAgents() {
 }
 
 function rebuildAgents(stats) {
+    if (!stats) return;
     const oldByName = {};
     state.agents.forEach(a => { oldByName[a.name] = a; });
     const next = [];
@@ -101,48 +92,60 @@ function rebuildAgents(stats) {
         atkIdx++;
     });
     state.agents = next;
-    layoutAgents();
     resetColorCache();
     state.agents.forEach(a => { colorForAgent(a.name, a.role, a.idx); });
+    layoutAgents();
     renderRoster();
     updateAgentFilter();
 }
 
 // ---------------------------------------------------------------------------
-// Rendering.
+// Rendering — defensive, never stops the rAF loop.
 // ---------------------------------------------------------------------------
 
 const AGENT_RADIUS = 26;
 
 function render() {
-    const w = canvas.offsetWidth, h = canvas.offsetHeight;
-    ctx.clearRect(0, 0, w, h);
+    try {
+        const w = canvas.offsetWidth || 600;
+        const h = canvas.offsetHeight || 600;
+        ctx.clearRect(0, 0, w, h);
 
-    const now = performance.now();
-    // Promote queued animations if there's room (max 8 concurrent).
-    while (state.pendingAnimations.length > 0 && state.animations.length < 8) {
-        state.animations.push(state.pendingAnimations.shift());
+        const now = performance.now();
+
+        // Promote queued animations (respecting stagger start times).
+        while (state.pendingAnimations.length > 0 && state.animations.length < 10) {
+            const anim = state.pendingAnimations[0];
+            if (now >= anim.startTime) {
+                state.animations.push(state.pendingAnimations.shift());
+            } else {
+                break;  // not time yet
+            }
+        }
+
+        // Draw and filter active animations.
+        state.animations = state.animations.filter(anim => {
+            const elapsed = now - anim.startTime;
+            if (elapsed < 0) return true;   // not started yet
+            if (elapsed > anim.duration) return false;
+            try { drawAnimation(anim, elapsed); } catch (e) { /* skip broken anim */ }
+            return true;
+        });
+
+        // Draw agents on top.
+        state.agents.forEach(a => { try { drawAgent(a, now); } catch (e) {} });
+    } catch (e) {
+        // Never let the render loop die.
     }
-    state.animations = state.animations.filter(anim => {
-        const elapsed = now - anim.startTime;
-        if (elapsed > anim.duration) return false;
-        drawAnimation(anim, elapsed);
-        return true;
-    });
-
-    state.agents.forEach(a => drawAgent(a));
     requestAnimationFrame(render);
 }
 
-function drawAgent(a) {
-    // Pulse highlight if any animation targets this agent.
-    const now = performance.now();
+function drawAgent(a, now) {
     const pulse = state.animations.some(anim =>
         (anim.fromName === a.name || anim.toName === a.name) &&
-        (now - anim.startTime) < 400
+        (now - anim.startTime) < 500 && (now - anim.startTime) > 0
     );
 
-    // Outer ring
     ctx.beginPath();
     ctx.arc(a.x, a.y, AGENT_RADIUS, 0, Math.PI * 2);
     ctx.fillStyle = a.color;
@@ -151,26 +154,25 @@ function drawAgent(a) {
     ctx.strokeStyle = pulse ? cssVar('--accent') : cssVar('--bg-panel');
     ctx.stroke();
 
-    // Initials
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px "IBM Plex Sans", sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(initials(a.name), a.x, a.y);
 
-    // Name label below
     ctx.fillStyle = cssVar('--text');
     ctx.font = '600 11px "IBM Plex Mono", monospace';
     ctx.fillText(a.name, a.x, a.y + AGENT_RADIUS + 14);
 
-    // Role icon above
     ctx.font = '9px "IBM Plex Mono", monospace';
     ctx.fillStyle = a.role === 'attacker' ? cssVar('--danger') : cssVar('--text-muted');
-    ctx.fillText(a.role === 'attacker' ? '▲ HACKER' : '◆ SPY', a.x, a.y - AGENT_RADIUS - 8);
+    ctx.fillText(a.role === 'attacker' ? '▲ HACKER' : '◆ COMM', a.x, a.y - AGENT_RADIUS - 8);
 }
 
 function drawAnimation(anim, elapsed) {
-    const progress = Math.min(1, elapsed / anim.duration);
+    const progress = Math.min(1, Math.max(0, elapsed / anim.duration));
+    if (progress <= 0) return;
+
     if (anim.kind === 'send') {
         const from = anim.from, to = anim.to;
         const dx = to.x - from.x, dy = to.y - from.y;
@@ -183,8 +185,8 @@ function drawAnimation(anim, elapsed) {
         const ey = to.y - uy * (AGENT_RADIUS + 8);
 
         const alpha = 1 - Math.pow(progress, 2);
-        const hex = anim.color.replace('#', '');
-        const alphaHex = Math.floor(alpha * 255).toString(16).padStart(2, '0');
+        const hex = (anim.color || '#888').replace('#', '');
+        const alphaHex = Math.floor(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0');
 
         ctx.beginPath();
         ctx.moveTo(sx, sy);
@@ -193,7 +195,6 @@ function drawAnimation(anim, elapsed) {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Arrowhead
         const angle = Math.atan2(dy, dx);
         ctx.beginPath();
         ctx.moveTo(ex, ey);
@@ -203,7 +204,6 @@ function drawAnimation(anim, elapsed) {
         ctx.fillStyle = '#' + hex + alphaHex;
         ctx.fill();
 
-        // Moving dot
         const t = Math.min(1, progress * 1.4);
         const px = sx + (ex - sx) * t;
         const py = sy + (ey - sy) * t;
@@ -215,63 +215,56 @@ function drawAnimation(anim, elapsed) {
         ctx.globalAlpha = 1;
     } else if (anim.kind === 'attack') {
         const from = anim.from, to = anim.to;
-        const sx = from.x, sy = from.y;
-        const ex = to.x, ey = to.y;
         const alpha = 1 - Math.pow(progress, 2);
         const color = anim.success ? cssVar('--success') : cssVar('--danger');
 
-        // Dashed line
         ctx.beginPath();
         ctx.setLineDash([6, 4]);
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(ex, ey);
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
         ctx.strokeStyle = color;
         ctx.globalAlpha = alpha;
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Flash circle on target
         const flashRadius = 20 + progress * 30;
         ctx.beginPath();
-        ctx.arc(ex, ey, flashRadius, 0, Math.PI * 2);
+        ctx.arc(to.x, to.y, flashRadius, 0, Math.PI * 2);
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.globalAlpha = alpha * 0.8;
         ctx.stroke();
 
-        // Result glyph
-        ctx.font = 'bold 22px "IBM Plex Sans", sans-serif';
+        ctx.font = 'bold 22px Inter, sans-serif';
         ctx.fillStyle = color;
         ctx.globalAlpha = alpha;
         ctx.textAlign = 'left';
-        ctx.fillText(anim.success ? '✕' : '✓', ex + 22, ey - 18);
+        ctx.fillText(anim.success ? '✕' : '✓', to.x + 22, to.y - 18);
         ctx.globalAlpha = 1;
     }
 }
 
-function findAgent(name) {
-    return state.agents.find(a => a.name === name);
-}
+function findAgent(name) { return state.agents.find(a => a.name === name); }
 
 // ---------------------------------------------------------------------------
 // Process incoming events.
 // ---------------------------------------------------------------------------
 
 function processTick(payload) {
-    state.events = state.events.concat(payload.events).slice(-300);
+    state.events = state.events.concat(payload.events || []).slice(-300);
 
-    // Stagger animations: each event's animation starts after the previous
-    // one's stagger delay, so they don't all appear at once.
+    // Stagger animations: each event's animation starts after the previous.
     let stagger = 0;
-    const STAGGER_MS = 180;
+    const STAGGER_MS = 200;
     (payload.events || []).forEach(ev => {
         if (ev.kind === 'send') {
             const from = findAgent(ev.sender);
             const to = findAgent(ev.target);
             if (from && to) {
                 state.pendingAnimations.push({
-                    kind: 'send', startTime: performance.now() + stagger,
+                    kind: 'send',
+                    startTime: performance.now() + stagger,
                     duration: 1400,
                     from: {x: from.x, y: from.y}, to: {x: to.x, y: to.y},
                     fromName: from.name, toName: to.name,
@@ -284,7 +277,8 @@ function processTick(payload) {
             const tgt = findAgent(ev.sender);
             if (atk && tgt) {
                 state.pendingAnimations.push({
-                    kind: 'attack', startTime: performance.now() + stagger,
+                    kind: 'attack',
+                    startTime: performance.now() + stagger,
                     duration: 1100,
                     from: {x: atk.x, y: atk.y}, to: {x: tgt.x, y: tgt.y},
                     fromName: atk.name, toName: tgt.name,
@@ -305,7 +299,10 @@ function processTick(payload) {
 function processSnapshot(payload) {
     state.events = payload.recent_events || [];
     state.stats = payload.stats;
-    state.config = payload.config;
+    state.config = {
+        ...payload.config,
+        tick_interval: payload.tick_interval || 0.9,  // FIX: include tick_interval
+    };
     state.running = payload.running;
     rebuildAgents(payload.stats);
     updateStatsPanels();
@@ -330,7 +327,7 @@ function connect() {
         el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> offline';
         setTimeout(connect, 1500);
     };
-    state.ws.onerror = () => { state.ws.close(); };
+    state.ws.onerror = () => { try { state.ws.close(); } catch(e){} };
     state.ws.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
         if (data.type === 'snapshot') processSnapshot(data);
@@ -338,18 +335,17 @@ function connect() {
     };
 }
 
-// Pause when the user navigates away from the simulation page.
+// Pause when user leaves the simulation page.
 document.addEventListener('visibilitychange', async () => {
     if (document.hidden && state.running) {
-        await apiPost('/api/sim/pause', {});
+        try { await apiPost('/api/sim/pause', {}); } catch(e){}
         state.running = false;
         updateControlUI();
     }
 });
-// Also pause on pagehide (covers tab close + back/forward).
 window.addEventListener('pagehide', async () => {
     if (state.running) {
-        try { await apiPost('/api/sim/pause', {}); } catch (e) {}
+        try { await apiPost('/api/sim/pause', {}); } catch(e){}
         state.running = false;
     }
 });
@@ -380,7 +376,7 @@ async function simReset() {
         seed: parseInt(document.getElementById('seed').value) || null,
     };
     await apiPost('/api/sim/reset', cfg);
-    state.config = cfg;
+    state.config = {...state.config, ...cfg};
     state.events = [];
     state.agents = [];
     state.animations = [];
@@ -390,10 +386,9 @@ async function simReset() {
     updateStatsPanels();
 }
 
-// When the user changes a setting, pause the sim (per user request).
 async function pauseOnChange() {
     if (state.running) {
-        await apiPost('/api/sim/pause', {});
+        try { await apiPost('/api/sim/pause', {}); } catch(e){}
         state.running = false;
         updateControlUI();
     }
@@ -409,11 +404,12 @@ function updateControlUI() {
         startBtn.style.display = 'inline-flex';
         pauseBtn.style.display = 'none';
     }
+    const ti = state.config.tick_interval || 0.9;
     document.getElementById('num-comms').value = state.config.num_communicators;
     document.getElementById('num-atks').value = state.config.num_attackers;
     document.getElementById('atk-temp').value = state.config.attacker_temperature;
     document.getElementById('comm-temp').value = state.config.communicator_temperature;
-    const rate = 1.0 / state.config.tick_interval;
+    const rate = 1.0 / ti;
     document.getElementById('tick-rate').value = rate;
     document.getElementById('num-comms-val').textContent = state.config.num_communicators;
     document.getElementById('num-atks-val').textContent = state.config.num_attackers;
@@ -423,7 +419,7 @@ function updateControlUI() {
 }
 
 // ---------------------------------------------------------------------------
-// Stats panels — visual bars with hover tooltips.
+// Stats panels.
 // ---------------------------------------------------------------------------
 
 function updateStatsPanels() {
@@ -437,8 +433,7 @@ function updateStatsPanels() {
 
     // Cipher usage — visual bars
     const cipherRows = (s.cipher_usage || [])
-        .map(c => ({...c, slug: c.name,
-                     usage_pct: s.summary.total_messages ? 100 * c.used / s.summary.total_messages : 0,
+        .map(c => ({...c, usage_pct: s.summary.total_messages ? 100 * c.used / s.summary.total_messages : 0,
                      break_pct: c.used ? 100 * c.broken / c.used : 0}))
         .filter(c => c.used > 0)
         .sort((a, b) => b.used - a.used);
@@ -448,15 +443,13 @@ function updateStatsPanels() {
         cipherEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No data yet — start the simulation.</div></div>';
     } else {
         cipherEl.innerHTML = cipherRows.map(c => {
-            const color = cipherColorFor(c.slug);
+            const color = cipherColorFor(c.name);
             const breakColor = cssVar('--danger');
             return `
                 <div class="usage-row tooltip">
-                    <div class="name">${cipherName(c.slug)}</div>
+                    <div class="name">${cipherName(c.name)}</div>
                     <div class="bar-track">
-                        <div class="bar-fill" style="width:${c.usage_pct}%;background:${color}">
-                            <span class="bar-label">${c.usage_pct.toFixed(0)}%</span>
-                        </div>
+                        <div class="bar-fill" style="width:${c.usage_pct}%;background:${color}"></div>
                         <div class="bar-fill secondary" style="width:${c.break_pct}%;background:${breakColor}"></div>
                     </div>
                     <div class="pct">${c.usage_pct.toFixed(0)}%</div>
@@ -474,8 +467,7 @@ function updateStatsPanels() {
     // Attack usage — visual bars
     const totalAtks = (s.attack_usage || []).reduce((sum, a) => sum + a.used, 0);
     const atkRows = (s.attack_usage || [])
-        .map(a => ({...a, slug: a.name,
-                     usage_pct: totalAtks ? 100 * a.used / totalAtks : 0,
+        .map(a => ({...a, usage_pct: totalAtks ? 100 * a.used / totalAtks : 0,
                      succ_pct: a.used ? 100 * a.success / a.used : 0}))
         .filter(a => a.used > 0)
         .sort((a, b) => b.used - a.used);
@@ -485,15 +477,12 @@ function updateStatsPanels() {
         atkEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No data yet — start the simulation.</div></div>';
     } else {
         atkEl.innerHTML = atkRows.map(a => {
-            const color = attackColorFor(a.slug);
-            const failColor = cssVar('--text-dim');
+            const color = attackColorFor(a.name);
             return `
                 <div class="usage-row tooltip">
-                    <div class="name">${attackName(a.slug)}</div>
+                    <div class="name">${attackName(a.name)}</div>
                     <div class="bar-track">
-                        <div class="bar-fill" style="width:${a.succ_pct}%;background:${color}">
-                            <span class="bar-label">${a.succ_pct.toFixed(0)}%</span>
-                        </div>
+                        <div class="bar-fill" style="width:${a.succ_pct}%;background:${color}"></div>
                     </div>
                     <div class="pct">${a.usage_pct.toFixed(0)}%</div>
                     <span class="tooltip-text">
@@ -509,21 +498,17 @@ function updateStatsPanels() {
 }
 
 function cipherColorFor(slug) {
-    return {
-        shift:'#0097a7', rail_fence:'#0097a7', permutation:'#1976d2',
-        vigenere:'#1976d2', substitution:'#7b1fa2', stream:'#7b1fa2',
-        feistel:'#e65100', aes:'#e65100', rsa:'#2e7d32',
-    }[slug] || '#888';
+    return {shift:'#00838f', rail_fence:'#00838f', permutation:'#1565c0',
+            vigenere:'#1565c0', substitution:'#6a1b9a', stream:'#6a1b9a',
+            feistel:'#d84315', aes:'#d84315', rsa:'#2e7d32'}[slug] || '#888';
 }
 function attackColorFor(slug) {
-    return {
-        brute_force:'#c62828', frequency:'#c62828',
-        known_plaintext:'#ef6c00', dictionary:'#ef6c00',
-    }[slug] || '#888';
+    return {brute_force:'#c62828', frequency:'#c62828',
+            known_plaintext:'#ef6c00', dictionary:'#ef6c00'}[slug] || '#888';
 }
 
 // ---------------------------------------------------------------------------
-// Agent roster — friendly, with visual badges and a divider between spies/hackers.
+// Agent roster.
 // ---------------------------------------------------------------------------
 
 function renderRoster() {
@@ -536,9 +521,7 @@ function renderRoster() {
     }
 
     const commHtml = comms.map(a => {
-        const sent = a.sent || 0;
-        const broken = a.broken || 0;
-        const ok = sent - broken;
+        const sent = a.sent || 0, broken = a.broken || 0, ok = sent - broken;
         return `
             <div class="phone-list-item" onclick="openAgent('${a.name}','communicator')">
                 <div class="avatar" style="background:${a.color}">${initials(a.name)}</div>
@@ -555,8 +538,7 @@ function renderRoster() {
     }).join('');
 
     const atkHtml = atks.map(a => {
-        const attempts = a.attempts || 0;
-        const success = a.success || 0;
+        const attempts = a.attempts || 0, success = a.success || 0;
         return `
             <div class="phone-list-item" onclick="openAgent('${a.name}','attacker')">
                 <div class="avatar" style="background:${a.color}">${initials(a.name)}</div>
@@ -572,12 +554,12 @@ function renderRoster() {
     }).join('');
 
     document.getElementById('agent-roster').innerHTML = `
-        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em">
-            <i class="fa-solid fa-user-secret" style="color:var(--accent)"></i> Spies
+        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">
+            <i class="fa-solid fa-comment-dots" style="color:var(--accent)"></i> Communicators
         </div>
         ${commHtml}
-        <div style="margin:8px 0;border-top:1px dashed var(--border-strong)"></div>
-        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em">
+        <div style="height:8px"></div>
+        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">
             <i class="fa-solid fa-skull-crossbones" style="color:var(--danger)"></i> Hackers
         </div>
         ${atkHtml}
@@ -590,6 +572,7 @@ function renderRoster() {
 
 function updateAgentFilter() {
     const sel = document.getElementById('filter-agent');
+    if (!sel) return;
     const current = sel.value;
     sel.innerHTML = '<option value="">any</option>' +
         state.agents.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
@@ -619,7 +602,12 @@ function renderLog() {
     const countEl = document.getElementById('log-count');
     if (countEl) countEl.textContent = events.length;
 
-    container.innerHTML = events.map(ev => {
+    if (events.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
+        return;
+    }
+
+    container.innerHTML = events.map((ev, idx) => {
         let cls = 'log-entry ' + ev.kind;
         let icon = 'fa-message';
         if (ev.kind === 'send') icon = 'fa-paper-plane';
@@ -627,9 +615,12 @@ function renderLog() {
         else if (ev.kind === 'secure') icon = 'fa-shield-halved';
         else if (ev.kind === 'skip') icon = 'fa-forward';
 
+        // Stagger the CSS animation per entry.
+        const delay = (idx * 50) + 'ms';
+
         return `
-            <div class="${cls}" style="padding:5px 8px;border-radius:0;margin-bottom:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;${ev.kind === 'intercepted' ? 'background:var(--danger-soft)' : ev.kind === 'secure' ? 'background:var(--success-soft)' : ''}">
-                <span style="color:var(--text-dim);min-width:50px">T${ev.tick}</span>
+            <div class="${cls}" style="animation-delay:${delay}">
+                <span class="tick">T${ev.tick}</span>
                 <i class="fa-solid ${icon}" style="width:14px;color:var(--text-muted)"></i>
                 ${ev.kind === 'send'
                     ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(ev.message_preview)}"</span></span>`
@@ -640,28 +631,19 @@ function renderLog() {
                     : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''}</span>`}
             </div>
         `;
-    }).join('') || '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
+    }).join('');
 }
 
-function togglePanel(id) {
-    document.getElementById(id).classList.toggle('collapsed');
-}
-
-function setFilter(key, val) {
-    state.filters[key] = val;
-    renderLog();
-}
+function togglePanel(id) { document.getElementById(id).classList.toggle('collapsed'); }
+function setFilter(key, val) { state.filters[key] = val; renderLog(); }
 
 // ---------------------------------------------------------------------------
-// Phone modal — with real-time refresh.
+// Phone modal.
 // ---------------------------------------------------------------------------
 
 async function openAgent(name, role) {
-    if (role === 'communicator') {
-        await openPhone(name);
-    } else {
-        await openAttackerPanel(name);
-    }
+    if (role === 'communicator') await openPhone(name);
+    else await openAttackerPanel(name);
 }
 
 async function openPhone(name) {
@@ -680,13 +662,11 @@ async function refreshPhone() {
     const nameEl = document.getElementById('phone-name');
     const statusEl = document.getElementById('phone-status');
 
-    // If a contact is selected, render chat view.
     if (state.openModal.contact) {
         const contact = state.openModal.contact;
         header.classList.add('show-back');
         const contactAgent = state.agents.find(a => a.name === contact);
-        const contactColor = contactAgent ? contactAgent.color : '#888';
-        avatarEl.style.background = contactColor;
+        avatarEl.style.background = contactAgent ? contactAgent.color : '#888';
         avatarEl.textContent = initials(contact);
         nameEl.textContent = contact;
         statusEl.innerHTML = '<span class="dot"></span> online';
@@ -719,7 +699,6 @@ async function refreshPhone() {
         }).join('');
         body.scrollTop = body.scrollHeight;
     } else {
-        // Render contact list.
         header.classList.remove('show-back');
         const agent = state.agents.find(a => a.name === name);
         avatarEl.style.background = agent ? agent.color : '#888';
@@ -736,14 +715,15 @@ async function refreshPhone() {
             const msgs = data.contacts[c];
             const last = msgs[msgs.length - 1];
             const preview = last.plaintext.slice(0, 32);
-            const intercepted = msgs.some(m => m.broken);
+            // FIX: only show exclamation if the LATEST message was intercepted.
+            const lastIntercepted = last && last.broken;
             const contactAgent = state.agents.find(a => a.name === c);
             const contactColor = contactAgent ? contactAgent.color : '#888';
             return `
                 <div class="phone-list-item" onclick="openChat('${name}','${c}')">
                     <div class="avatar" style="background:${contactColor}">${initials(c)}</div>
                     <div class="info">
-                        <div class="name">${c} ${intercepted ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);font-size:0.7rem"></i>' : ''}</div>
+                        <div class="name">${c} ${lastIntercepted ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);font-size:0.7rem"></i>' : ''}</div>
                         <div class="preview">${escapeHtml(preview)}</div>
                     </div>
                     <div class="meta">T${last.tick}</div>
@@ -759,7 +739,7 @@ function openChat(agentName, contactName) {
 }
 
 // ---------------------------------------------------------------------------
-// Attacker panel — with real-time refresh.
+// Attacker panel.
 // ---------------------------------------------------------------------------
 
 async function openAttackerPanel(name) {
@@ -788,10 +768,10 @@ async function refreshAttackerPanel() {
             ? '<span class="tag"><i class="fa-solid fa-forward"></i> Skipped</span>'
             : '<span class="tag tag-success"><i class="fa-solid fa-shield-halved"></i> Survived</span>';
         return `
-            <div class="panel mb-2" style="padding:14px;border-left:3px solid ${color}">
+            <div class="panel mb-2" style="padding:14px;border-left:4px solid ${color}">
                 <div class="flex items-center justify-between mb-1" style="flex-wrap:wrap;gap:8px">
                     <div style="font-family:var(--font-mono);font-size:0.82rem">
-                        T${a.tick} &middot; <b>${a.sender}</b>
+                        T${a.tick} · <b>${a.sender}</b>
                         <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem;margin:0 4px"></i>
                         <b>${a.target}</b>
                     </div>
@@ -839,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-pause').onclick = simPause;
     document.getElementById('btn-reset').onclick = simReset;
 
-    // Settings pause the sim on change (per user request — no live tuning).
     ['num-comms', 'num-atks', 'seed'].forEach(id => {
         document.getElementById(id).addEventListener('change', pauseOnChange);
         document.getElementById(id).addEventListener('input', e => {
@@ -848,7 +827,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Live-preview the slider values, but apply on change (which pauses).
     document.getElementById('atk-temp').addEventListener('input', e => {
         document.getElementById('atk-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
     });
@@ -872,13 +850,11 @@ document.addEventListener('DOMContentLoaded', () => {
         await apiPost('/api/sim/tune', {tick_interval: interval});
     });
 
-    // Filter dropdowns.
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);
     document.getElementById('filter-cipher').onchange = e => setFilter('cipher', e.target.value);
     document.getElementById('filter-attack').onchange = e => setFilter('attack', e.target.value);
     document.getElementById('filter-outcome').onchange = e => setFilter('outcome', e.target.value);
 
-    // Modal close.
     document.getElementById('phone-back').onclick = closePhone;
     document.getElementById('attacker-close').onclick = closeAttacker;
     document.querySelectorAll('.modal-overlay').forEach(o => {

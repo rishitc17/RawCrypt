@@ -12,7 +12,7 @@ teenagers — no jargon left undefined, no slug snake_case in the prose.
 CIPHER_PAGES = {
     "shift": {
         "title": "Shift Cipher",
-        "icon": "fa-arrow-right-arrow-left",
+        "icon": "fa-i-cursor",
         "category": "Ciphers",
         "summary": "The Caesar cipher. Every byte of the message gets nudged forward by the same amount.",
         "body": (
@@ -121,7 +121,7 @@ CIPHER_PAGES = {
     },
     "substitution": {
         "title": "Substitution Cipher",
-        "icon": "fa-exchange-alt",
+        "icon": "fa-circle-half-stroke",
         "category": "Ciphers",
         "summary": "Every printable byte maps to a different byte. 95! possible keys — but frequency analysis cracks it.",
         "body": (

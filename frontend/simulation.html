@@ -6,7 +6,7 @@
     <title>Simulation — RawCrypt</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -31,16 +31,15 @@
 
 <div class="page-header">
     <div class="container">
-        <div class="section-marker">DOSSIER &middot; LIVE FIELD</div>
+        <div class="eyebrow">Live simulation</div>
         <h1>The Simulation</h1>
-        <p>Communicators send encrypted messages. Attackers try to break them. Click any agent to inspect their phone or attack log.</p>
+        <p>Communicators send encrypted messages. Hackers try to break them. Click any agent to inspect their phone or attack log.</p>
         <div style="margin-top:14px"><span id="ws-status" class="tag"><i class="fa-solid fa-circle" style="font-size:0.5rem"></i> connecting...</span></div>
     </div>
 </div>
 
 <div class="container">
 
-    <!-- Summary stats — fixed 4-up grid -->
     <div class="stats-row">
         <div class="stat-tile">
             <div class="label"><i class="fa-solid fa-clock-rotate-left"></i> Tick</div>
@@ -55,7 +54,7 @@
         <div class="stat-tile">
             <div class="label"><i class="fa-solid fa-shield-halved"></i> Survival</div>
             <div class="value success" id="stat-survival">—</div>
-            <div class="hint">messages attackers failed to crack</div>
+            <div class="hint">messages hackers failed to crack</div>
         </div>
         <div class="stat-tile">
             <div class="label"><i class="fa-solid fa-shuffle"></i> Ciphers in play</div>
@@ -64,12 +63,11 @@
         </div>
     </div>
 
-    <!-- Canvas + controls -->
     <div class="sim-layout mb-3">
         <div class="sim-canvas-wrap">
             <div class="sim-canvas-overlay">
                 <div class="legend"><span class="swatch" style="background:var(--c1)"></span> Communicator</div>
-                <div class="legend"><span class="swatch" style="background:var(--atk1)"></span> Attacker</div>
+                <div class="legend"><span class="swatch" style="background:var(--atk1)"></span> Hacker</div>
                 <div class="legend"><span class="swatch" style="background:var(--success)"></span> Survived</div>
                 <div class="legend"><span class="swatch" style="background:var(--danger)"></span> Intercepted</div>
             </div>
@@ -90,16 +88,16 @@
                     <div class="slider-row">
                         <div class="label-row">
                             Communicators
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many spies will be sending messages. More agents = more traffic = more attacks.</span></span>
+                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be sending messages. More agents = more traffic = more attacks.</span></span>
                             <span class="value" id="num-comms-val">4</span>
                         </div>
                         <input type="range" id="num-comms" min="2" max="10" step="1" value="4">
-                        <div class="hint">2-10 spies (changing pauses the sim)</div>
+                        <div class="hint">2-10 agents (changing pauses the sim)</div>
                     </div>
                     <div class="slider-row">
                         <div class="label-row">
-                            Attackers
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many hackers will be trying to break messages. More attackers = lower survival rate.</span></span>
+                            Hackers
+                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be trying to break messages. More hackers = lower survival rate.</span></span>
                             <span class="value" id="num-atks-val">2</span>
                         </div>
                         <input type="range" id="num-atks" min="1" max="5" step="1" value="2">
@@ -118,8 +116,8 @@
                 <div class="control-group">
                     <div class="slider-row">
                         <div class="label-row">
-                            Attacker Greediness
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How greedy the attackers are. Low = they stick to the attack that's working best. High = they experiment with more attacks. Try 0.3 to see them lock onto the best attack; try 1.5 to see them explore.</span></span>
+                            Hacker Greediness
+                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How greedy the hackers are. Low = they stick to the attack that's working best. High = they experiment with more attacks. Try 0.3 to see them lock onto the best attack; try 1.5 to see them explore.</span></span>
                             <span class="value" id="atk-temp-val">1.00</span>
                         </div>
                         <input type="range" id="atk-temp" min="0.1" max="2.0" step="0.05" value="1.0">
@@ -128,7 +126,7 @@
                     <div class="slider-row">
                         <div class="label-row">
                             Communicator Caution
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How cautious the spies are. Low = they stick to the safest cipher. High = they experiment with more ciphers. Try 0.3 to see them lock onto RSA; try 1.5 to see variety.</span></span>
+                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How cautious the communicators are. Low = they stick to the safest cipher. High = they experiment with more ciphers. Try 0.3 to see them lock onto RSA; try 1.5 to see variety.</span></span>
                             <span class="value" id="comm-temp-val">1.20</span>
                         </div>
                         <input type="range" id="comm-temp" min="0.1" max="2.0" step="0.05" value="1.2">
@@ -148,13 +146,12 @@
         </div>
     </div>
 
-    <!-- Collapsible sections: roster, cipher usage, attack usage, log -->
     <div class="panel mb-3" id="panel-roster">
         <div class="panel-header" onclick="togglePanel('panel-roster')">
             <div class="title"><i class="fa-solid fa-users"></i> Agents</div>
             <i class="fa-solid fa-chevron-down chevron"></i>
         </div>
-        <div class="panel-body" style="max-height:540px;overflow-y:auto;padding:8px">
+        <div class="panel-body" style="max-height:480px;overflow-y:auto;padding:8px">
             <div id="agent-roster">
                 <div class="empty-state"><i class="fa-solid fa-spinner spinner"></i><div>Connecting to simulation...</div></div>
             </div>
@@ -192,24 +189,37 @@
             <i class="fa-solid fa-chevron-down chevron"></i>
         </div>
         <div class="panel-body" style="padding:0">
-            <div class="log-filters" style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-family:var(--font-mono);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em">
-                <label style="display:flex;align-items:center;gap:6px;color:var(--text-muted)">agent
-                    <select id="filter-agent" style="width:auto;padding:4px 8px;font-size:0.78rem;text-transform:none">
+            <div class="log-filters">
+                <label>agent
+                    <select id="filter-agent">
                         <option value="">any</option>
                     </select>
                 </label>
-                <label style="display:flex;align-items:center;gap:6px;color:var(--text-muted)">cipher
-                    <select id="filter-cipher" style="width:auto;padding:4px 8px;font-size:0.78rem;text-transform:none">
+                <label>cipher
+                    <select id="filter-cipher">
                         <option value="">any</option>
+                        <option value="shift">Shift</option>
+                        <option value="rail_fence">Rail Fence</option>
+                        <option value="permutation">Permutation</option>
+                        <option value="vigenere">Vigenère</option>
+                        <option value="substitution">Substitution</option>
+                        <option value="stream">Stream</option>
+                        <option value="feistel">Feistel</option>
+                        <option value="aes">AES</option>
+                        <option value="rsa">RSA</option>
                     </select>
                 </label>
-                <label style="display:flex;align-items:center;gap:6px;color:var(--text-muted)">attack
-                    <select id="filter-attack" style="width:auto;padding:4px 8px;font-size:0.78rem;text-transform:none">
+                <label>attack
+                    <select id="filter-attack">
                         <option value="">any</option>
+                        <option value="brute_force">Brute Force</option>
+                        <option value="frequency">Frequency</option>
+                        <option value="known_plaintext">Known Plaintext</option>
+                        <option value="dictionary">Dictionary</option>
                     </select>
                 </label>
-                <label style="display:flex;align-items:center;gap:6px;color:var(--text-muted)">outcome
-                    <select id="filter-outcome" style="width:auto;padding:4px 8px;font-size:0.78rem;text-transform:none">
+                <label>outcome
+                    <select id="filter-outcome">
                         <option value="all">all</option>
                         <option value="send">sends only</option>
                         <option value="success">breaks only</option>
@@ -217,7 +227,7 @@
                     </select>
                 </label>
             </div>
-            <div id="log-entries" style="max-height:340px;overflow-y:auto;padding:8px 14px;font-family:var(--font-mono);font-size:0.82rem">
+            <div id="log-entries" class="log-entries">
                 <div class="empty-state"><i class="fa-solid fa-inbox"></i><div>Waiting for events...</div></div>
             </div>
         </div>
@@ -225,7 +235,6 @@
 
 </div>
 
-<!-- Phone modal -->
 <div class="modal-overlay" id="phone-modal">
     <div class="phone">
         <div class="phone-header">
@@ -240,7 +249,6 @@
     </div>
 </div>
 
-<!-- Attacker modal -->
 <div class="modal-overlay" id="attacker-modal">
     <div class="modal modal-large">
         <div class="modal-header">
@@ -253,7 +261,8 @@
 
 <footer style="margin-top:60px">
     <div class="container">
-        <div class="annotation">FIELD MANUAL &middot; SIMULATION MODE</div>
+        <div class="brand-mark"><span class="glyph">R</span><span class="word">Raw<b>Crypt</b></span></div>
+        <div style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-dim)">Simulation mode</div>
     </div>
 </footer>
 
