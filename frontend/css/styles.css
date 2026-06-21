@@ -213,40 +213,6 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
-    cursor: pointer;
-    width: 18px;
-    height: 100%;
-    background: var(--bg-panel-2);
-    border-left: 1px solid var(--border);
-    position: relative;
-}
-input[type="number"]::-webkit-inner-spin-button:before {
-    content: '\f077';  /* fa-chevron-up */
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    font-size: 8px;
-    color: var(--text-muted);
-    position: absolute;
-    top: 4px;
-    left: 0;
-    right: 0;
-    text-align: center;
-}
-input[type="number"]::-webkit-inner-spin-button:after {
-    content: '\f078';  /* fa-chevron-down */
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    font-size: 8px;
-    color: var(--text-muted);
-    position: absolute;
-    bottom: 4px;
-    left: 0;
-    right: 0;
-    text-align: center;
-}
-input[type="number"]::-webkit-inner-spin-button:hover:before,
-input[type="number"]::-webkit-inner-spin-button:hover:after {
-    color: var(--accent);
 }
 
 /* ---- Brand mark -------------------------------------------------------- */
@@ -337,22 +303,23 @@ input[type="number"]::-webkit-inner-spin-button:hover:after {
 }
 .nav-links a i { font-size: 0.85rem; }
 
-/* ---- Theme slider ------------------------------------------------------ */
+/* ---- Theme toggle (UIVerse strong-squid-82 style) -------------------- */
 
-.theme-slider {
-    width: 52px;
+.theme-toggle {
+    margin-left: 12px;
+    width: 56px;
     height: 28px;
     background: var(--bg-panel-2);
     border: 1px solid var(--border-strong);
     border-radius: 999px;
     position: relative;
     cursor: pointer;
-    margin-left: 12px;
     display: inline-block;
-    transition: background 200ms;
     flex-shrink: 0;
+    transition: background 300ms;
+    overflow: hidden;
 }
-.theme-slider::before {
+.theme-toggle::before {
     content: '';
     position: absolute;
     top: 2px;
@@ -361,13 +328,16 @@ input[type="number"]::-webkit-inner-spin-button:hover:after {
     height: 22px;
     background: var(--accent);
     border-radius: 50%;
-    transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--shadow-sm);
+    transition: transform 350ms cubic-bezier(0.4, 0, 0.2, 1), background 300ms;
+    box-shadow: 0 0 8px var(--accent);
+    z-index: 2;
 }
-.theme-slider[data-theme="dark"]::before {
-    transform: translateX(24px);
+.theme-toggle[data-theme="dark"]::before {
+    transform: translateX(28px);
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
 }
-.theme-slider .ico {
+.theme-toggle .ico {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
@@ -376,16 +346,17 @@ input[type="number"]::-webkit-inner-spin-button:hover:after {
     width: 14px;
     text-align: center;
     transition: opacity 200ms;
+    z-index: 1;
 }
-.theme-slider .ico.sun { left: 4px; color: #f59e0b; }     /* always-visible golden sun */
-.theme-slider .ico.moon { right: 4px; color: #c4b5fd; }    /* always-visible lavender moon */
-:root[data-theme="light"] .theme-slider .ico.sun { opacity: 1; }
-:root[data-theme="light"] .theme-slider .ico.moon { opacity: 0.4; }
-:root[data-theme="dark"] .theme-slider .ico.sun { opacity: 0.4; }
-:root[data-theme="dark"] .theme-slider .ico.moon { opacity: 1; }
+.theme-toggle .ico.sun { left: 4px; color: #f59e0b; }
+.theme-toggle .ico.moon { right: 4px; color: #c4b5fd; }
+:root[data-theme="light"] .theme-toggle .ico.sun { opacity: 1; }
+:root[data-theme="light"] .theme-toggle .ico.moon { opacity: 0.4; }
+:root[data-theme="dark"] .theme-toggle .ico.sun { opacity: 0.4; }
+:root[data-theme="dark"] .theme-toggle .ico.moon { opacity: 1; }
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .theme-slider .ico.sun { opacity: 0.4; }
-    :root:not([data-theme="light"]) .theme-slider .ico.moon { opacity: 1; }
+    :root:not([data-theme="light"]) .theme-toggle .ico.sun { opacity: 0.4; }
+    :root:not([data-theme="light"]) .theme-toggle .ico.moon { opacity: 1; }
 }
 
 /* ---- Buttons ----------------------------------------------------------- */
@@ -470,16 +441,25 @@ input[type="number"]::-webkit-inner-spin-button:hover:after {
     color: var(--text-dim);
 }
 .panel.collapsed .panel-header .chevron { transform: rotate(-90deg); }
+/* ---- Panel body — allow tooltip overflow ------------------------------- */
+
 .panel-body {
     padding: 20px;
     transition: max-height 250ms ease, padding 250ms ease, opacity 200ms;
-    overflow: hidden;
+    /* Allow tooltips to overflow the panel — they have their own z-index. */
+    overflow: visible;
 }
 .panel.collapsed .panel-body {
     max-height: 0 !important;
     padding-top: 0;
     padding-bottom: 0;
     opacity: 0;
+    overflow: hidden;
+}
+
+/* For scrollable panels (like the agent roster), keep overflow auto. */
+.panel-body.scrollable {
+    overflow-y: auto;
 }
 
 /* ---- Layout ------------------------------------------------------------ */
@@ -620,8 +600,10 @@ a.feature-card { text-decoration: none; color: inherit; }
     display: flex;
     flex-direction: column;
     gap: 8px;
+    cursor: pointer;
 }
 .roster-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+a.roster-card { text-decoration: none; color: inherit; }
 .roster-card .icon-row {
     display: flex;
     align-items: center;
@@ -659,6 +641,8 @@ a.feature-card { text-decoration: none; color: inherit; }
 .roster-card .meter .dots {
     display: flex;
     gap: 2px;
+    flex-wrap: wrap;
+    max-width: 120px;
 }
 .roster-card .meter .dot {
     width: 6px; height: 6px; border-radius: 50%;
@@ -667,8 +651,8 @@ a.feature-card { text-decoration: none; color: inherit; }
 .roster-card .meter .dot.on { background: var(--accent); }
 .roster-card .meter .dot.on.sec { background: var(--success); }
 .roster-card .meter .dot.on.dng { background: var(--danger); }
-.roster-card a {
-    margin-top: 6px;
+.roster-card a, .roster-card .more {
+    margin-top: auto;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     font-weight: 600;
@@ -805,17 +789,24 @@ footer .container {
 }
 
 /* Inside the controls panel (right side of sim layout), tooltips would
-   overflow the left edge. Push them right-aligned. */
+   overflow the left edge. Push them right-aligned and flip below. */
 .sim-controls .tooltip .tooltip-text {
+    bottom: auto;
+    top: calc(100% + 8px);
     left: auto;
     right: 0;
     transform: none;
     width: 280px;
+    z-index: 10000;
 }
 .sim-controls .tooltip .tooltip-text::after {
+    top: auto;
+    bottom: 100%;
     left: auto;
     right: 14px;
     transform: none;
+    border-top-color: transparent;
+    border-bottom-color: var(--text);
 }
 
 /* Usage chart tooltips — flip below the row, restore panel padding */
@@ -1274,7 +1265,7 @@ input[type="range"]::-moz-range-thumb {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow-sm);
-    overflow: hidden;
+    overflow: visible;
 }
 .sim-controls .controls-header {
     padding: 14px 18px;
@@ -1355,7 +1346,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---- Visual usage chart ------------------------------------------------ */
 
-.usage-chart { display: flex; flex-direction: column; gap: 16px; }
+.usage-chart { display: flex; flex-direction: column; gap: 14px; }
 .usage-row {
     display: grid;
     grid-template-columns: 110px 1fr;
@@ -1371,13 +1362,9 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text);
     text-transform: capitalize;
 }
-.usage-row .bars {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
+.usage-row .bars { display: flex; flex-direction: column; gap: 4px; }
 .usage-row .bar-track {
-    height: 14px;
+    height: 16px;
     background: var(--bg-panel-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-xs);
@@ -1389,15 +1376,6 @@ input[type="range"]::-moz-range-thumb {
     transition: width 500ms cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: var(--radius-xs) 0 0 var(--radius-xs);
 }
-.usage-row .bar-label {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    margin-bottom: 1px;
-    display: flex;
-    justify-content: space-between;
-}
-.usage-row .bar-label .right { color: var(--text-dim); }
 .usage-row .tooltip-text { width: 260px; }
 .usage-row .tooltip-text .row {
     display: flex;
@@ -1408,6 +1386,43 @@ input[type="range"]::-moz-range-thumb {
 }
 .usage-row .tooltip-text .row:last-child { margin-bottom: 0; }
 .usage-row .tooltip-text .row b { color: var(--bg); }
+
+/* ---- Roster tabs ------------------------------------------------------- */
+
+.roster-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel-2);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+.roster-tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 180ms;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.roster-tab:hover { background: var(--bg-panel); color: var(--text); }
+.roster-tab.active {
+    background: var(--bg-panel);
+    color: var(--accent);
+    border-color: var(--border);
+}
+.roster-tab-content { padding: 4px; }
 
 /* ---- Playground -------------------------------------------------------- */
 
@@ -1834,7 +1849,7 @@ input[type="range"]::-moz-range-thumb {
 .gap-1 { gap: 8px; }
 .gap-2 { gap: 16px; }
 .gap-3 { gap: 24px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
 .hidden { display: none !important; }
 

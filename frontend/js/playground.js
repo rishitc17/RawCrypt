@@ -4,17 +4,17 @@ let ciphers = [];
 let selectedCipher = null;
 let lfsrState = { bits: ['0','0','0','1'], taps: new Set([2, 1]) };
 
-// Expanded cipher descriptions for the playground.
+// Expanded cipher descriptions for the playground — exactly 3 sentences each.
 const CIPHER_DESCRIPTIONS = {
-    shift: "The Caesar shift cipher — the oldest trick in the book. Every byte of your message gets nudged forward by the same amount (wrapping around at 256). With shift=3, 'A' (65) becomes 'D' (68). It's dirt cheap to use but offers almost no security: there are only 256 possible keys, so brute force cracks it in milliseconds.",
-    rail_fence: "A transposition cipher that writes your message in a zig-zag pattern across N horizontal 'rails', then reads each rail left-to-right. With 3 rails, the bits of your message trace a zig-zag across three rows. Cheap and slightly harder than shift, but with only 18 possible rail counts, brute force still cracks it instantly.",
-    permutation: "Chops your message into 8-byte blocks and rearranges the bytes of each block according to a fixed pattern (the key). For example, with the pattern [2,0,5,1,7,3,6,4], byte 0 goes to position 2, byte 1 goes to position 0, and so on. There are 8! = 40,320 possible patterns — sounds like a lot, but a modern computer can try them all in under a second.",
-    vigenere: "A polyalphabetic cipher that fooled Europe for 300 years. Pick a short key word, repeat it to match your message length, then shift each plaintext character by the value of the corresponding key character. The same plaintext letter doesn't always become the same ciphertext letter, which defeats simple frequency counts — but a known-plaintext attack (knowing a chunk of the original) reveals the key cycle directly.",
-    substitution: "Builds a giant lookup table: every printable byte maps to a different printable byte. There are 95! possible keys — astronomically large, so brute force is impossible. But the frequency pattern of the original text leaks straight through: the most common ciphertext byte is probably the substitute for space. This attack, called frequency analysis, has been breaking substitution ciphers since the 9th century.",
-    stream: "A stream cipher generates a long pseudo-random 'keystream' from a short seed, then XORs the keystream with your message one byte at a time. Decryption is the same operation (XOR is its own inverse). In RawCrypt, the keystream comes from a Linear Feedback Shift Register (LFSR) — a simple circuit that's fast but insecure on its own. A known-plaintext attack brute-forces the 4-bit or 8-bit seed and validates each candidate against a known chunk of plaintext.",
-    feistel: "A Feistel network splits the plaintext block into two halves L and R. On each round, the new L is the old R, and the new R is the old L XOR F(R, round_key), where F can be any scrambling function. The elegant trick: F doesn't need to be invertible — decryption uses the exact same circuit with round keys in reverse. RawCrypt's toy Feistel uses 4 rounds, 16-bit blocks, and a round function that's just XOR + nibble swap. DES (1977) is the most famous real-world Feistel cipher.",
-    aes: "AES is the most widely used symmetric cipher in the world — it protects HTTPS, WiFi, disk encryption, Signal, and iMessage. Each round applies four steps: SubBytes (substitute each byte using a lookup table), ShiftRows (permute bytes within rows), MixColumns (mix bytes within columns), and AddRoundKey (XOR with the round key). Real AES uses 128-bit blocks and 10-14 rounds; RawCrypt's toy version uses 16-bit blocks, 2 rounds, and a tiny 4-nibble S-box. It's cryptographically useless but demonstrates the structure.",
-    rsa: "RSA was invented in 1977 by Rivest, Shamir, and Adleman. Its security rests on a simple observation: multiplying two large primes is easy, but factoring the product back is (as far as anyone knows) extremely hard. Pick two primes p and q, compute n = p×q, pick a public exponent e coprime to (p-1)(q-1), and compute the private exponent d = e⁻¹ mod (p-1)(q-1). Publish (e, n) as your public key; keep (d, n) as your private key. Encrypt with c = mᵉ mod n, decrypt with m = cᵈ mod n. In this playground you can choose your own p, q, and e — the simulator computes n, phi, and d automatically.",
+    shift: "The Caesar shift cipher nudges every byte of your message forward by the same amount. It's the oldest trick in the book, dating back to Julius Caesar. With only 256 possible keys, brute force cracks it in milliseconds.",
+    rail_fence: "Rail Fence writes your message in a zig-zag across N horizontal rails, then reads each rail left to right. It's a transposition cipher, so no letters get replaced — just rearranged. With only 18 possible rail counts, brute force still cracks it instantly.",
+    permutation: "Permutation chops your message into 8-byte blocks and rearranges the bytes of each block. The pattern is the key, and there are 8! = 40,320 possible patterns. A modern computer can try them all in under a second.",
+    vigenere: "Vigenère repeats a short key to match your message length, then shifts each character by the corresponding key character. The same plaintext letter doesn't always become the same ciphertext letter, which defeats simple frequency counts. A known-plaintext attack reveals the key cycle directly.",
+    substitution: "Substitution builds a lookup table mapping every printable byte to a different one. There are 95! possible keys, so brute force is impossible. But frequency analysis cracks it, because the most common ciphertext byte is probably the substitute for space.",
+    stream: "Stream generates a long pseudo-random keystream from a short seed, then XORs it with your message. Decryption is the same operation, because XOR is its own inverse. The keystream comes from a Linear Feedback Shift Register, which is fast but insecure on its own.",
+    feistel: "Feistel splits the block into two halves L and R, then on each round swaps them and XORs one half with a function of the other. The elegant trick is that decryption uses the exact same circuit with round keys in reverse. DES, the famous cipher from 1977, is a 16-round Feistel network.",
+    aes: "AES is the most widely used symmetric cipher in the world, protecting HTTPS, WiFi, and disk encryption. Each round applies four steps: SubBytes, ShiftRows, MixColumns, and AddRoundKey. Real AES uses 128-bit blocks and 10-14 rounds; this toy version uses 16-bit blocks and 2 rounds.",
+    rsa: "RSA's security rests on the fact that multiplying two large primes is easy, but factoring the product back is hard. You pick two primes p and q, compute n = p×q, and pick a public exponent e. Anyone can encrypt with c = mᵉ mod n, but only you can decrypt with m = cᵈ mod n using your private key d.",
 };
 
 async function loadCiphers() {
@@ -185,9 +185,9 @@ function renderLfsrInput(container) {
             <div class="lfsr-row">
                 ${[0,1,2,3].map(i => `
                     <div class="lfsr-cell">
-                        <button class="lfsr-tap-btn ${lfsrState.taps.has(i) ? 'active' : ''}" onclick="toggleTap(${i})">tap</button>
+                        <button class="lfsr-tap-btn ${lfsrState.taps.has(i) ? 'active' : ''}" onclick="toggleTap(${i})">Tap</button>
                         <input type="text" class="lfsr-bit-input" maxlength="1" value="${lfsrState.bits[i]}" oninput="updateLfsrBit(${i}, this.value)" />
-                        <div class="lfsr-cell-label">bit ${i}</div>
+                        <div class="lfsr-cell-label">Bit ${i}</div>
                     </div>
                 `).join('')}
             </div>
@@ -197,7 +197,7 @@ function renderLfsrInput(container) {
             </div>
         </div>
         <input type="hidden" id="key-input" />
-        <div class="hint">Click <b>tap</b> above any bit to toggle whether that bit feeds back. The seed goes in the big boxes.</div>
+        <div class="hint">Click <b>Tap</b> above any bit to toggle whether that bit feeds back. The seed goes in the big boxes.</div>
     `;
     syncLfsrKey();
 }
@@ -251,7 +251,7 @@ function renderPermutationInput(container) {
                 ${perm.map((v, i) => `
                     <div class="perm-cell">
                         <div class="perm-cell-label">Position ${i}</div>
-                        <input type="number" class="perm-cell-input" min="0" max="7" value="${v}" oninput="updatePermKey()" />
+                        <input type="text" class="perm-cell-input" maxlength="1" value="${v}" oninput="updatePermKey(this)" />
                     </div>
                 `).join('')}
             </div>
@@ -262,7 +262,10 @@ function renderPermutationInput(container) {
     `;
 }
 
-function updatePermKey() {
+function updatePermKey(inputEl) {
+    // Allow only digits 0-7.
+    let v = (inputEl.value || '').replace(/[^0-7]/g, '').slice(0, 1);
+    inputEl.value = v;
     const inputs = document.querySelectorAll('.perm-cell-input');
     const perm = Array.from(inputs).map(i => parseInt(i.value) || 0);
     const hidden = document.getElementById('key-input');

@@ -21,7 +21,7 @@
             <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> <span>Simulation</span></a>
             <a href="/playground"><i class="fa-solid fa-flask"></i> <span>Playground</span></a>
             <a href="/wiki"><i class="fa-solid fa-book"></i> <span>Wiki</span></a>
-            <span class="theme-slider" role="button" aria-label="Toggle theme">
+            <span class="theme-toggle" role="button" aria-label="Toggle theme">
                 <i class="fa-solid fa-sun ico sun"></i>
                 <i class="fa-solid fa-moon ico moon"></i>
             </span>
@@ -98,96 +98,96 @@
         </div>
 
         <div class="roster-grid">
-            <div class="roster-card">
+            <a href="/wiki#shift" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-i-cursor"></i></div>
                 <div class="name">Shift</div>
                 <div class="desc">Caesar's classic. Each byte nudged forward by a fixed amount.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#shift">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#rail_fence" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-bars-staggered"></i></div>
                 <div class="name">Rail Fence</div>
                 <div class="desc">A zig-zag transposition. Cheap but predictable.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#rail_fence">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#permutation" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-shuffle"></i></div>
                 <div class="name">Permutation</div>
                 <div class="desc">8 bytes get shuffled. 40,320 possible shuffles.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#permutation">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#vigenere" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-table-cells"></i></div>
                 <div class="name">Vigenère</div>
                 <div class="desc">A repeating-key cipher that fooled Europe for 300 years.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#vigenere">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#substitution" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-circle-half-stroke"></i></div>
                 <div class="name">Substitution</div>
                 <div class="desc">Every byte maps to another. Frequency analysis cracks it.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#substitution">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#stream" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-water"></i></div>
                 <div class="name">Stream</div>
                 <div class="desc">A pseudo-random keystream XORed with the message.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#stream">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#feistel" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-network-wired"></i></div>
                 <div class="name">Feistel</div>
                 <div class="desc">A 4-round toy network. Same circuit encrypts and decrypts.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#feistel">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#aes" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-shield-halved"></i></div>
                 <div class="name">AES</div>
                 <div class="desc">2-round toy AES. The real one has 10-14 rounds.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span></div></div>
-                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#aes">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#rsa" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-key"></i></div>
                 <div class="name">RSA</div>
                 <div class="desc">The only asymmetric cipher. Based on factoring big numbers.</div>
                 <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
-                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span></div></div>
-                    <div class="meter">Security: <div class="dots" style="max-width:120px;flex-wrap:wrap"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
+                    <div class="meter">Cost: <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div></div>
+                    <div class="meter">Security: <div class="dots"><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span></div></div>
                 </div>
-                <a href="/wiki#rsa">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
         </div>
     </div>
 </section>
@@ -201,42 +201,42 @@
         </div>
 
         <div class="roster-grid">
-            <div class="roster-card">
+            <a href="/wiki#brute_force" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-hammer" style="color:var(--danger)"></i></div>
                 <div class="name">Brute Force</div>
                 <div class="desc">Try every possible key until one works. Slow but always succeeds eventually.</div>
-                <div class="meters">
-                    <div class="meter">cost <div class="dots"><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot"></span></div></div>
+                <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
+                    <div class="meter">Cost: <div class="dots"><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#brute_force">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#frequency" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-chart-column" style="color:var(--danger)"></i></div>
                 <div class="name">Frequency</div>
                 <div class="desc">Use byte-frequency statistics to break substitution ciphers. The oldest trick in the book.</div>
-                <div class="meters">
-                    <div class="meter">cost <div class="dots"><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot"></span><span class="dot"></span></div></div>
+                <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
+                    <div class="meter">Cost: <div class="dots"><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot on dng"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#frequency">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#known_plaintext" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-magnifying-glass" style="color:var(--warning)"></i></div>
                 <div class="name">Known Plaintext</div>
                 <div class="desc">If you know part of the message (a "crib"), you can often recover the key directly.</div>
-                <div class="meters">
-                    <div class="meter">cost <div class="dots"><span class="dot on" style="background:var(--warning)"></span><span class="dot on" style="background:var(--warning)"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
+                    <div class="meter">Cost: <div class="dots"><span class="dot on" style="background:var(--warning)"></span><span class="dot on" style="background:var(--warning)"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#known_plaintext">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
-            <div class="roster-card">
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki#dictionary" class="roster-card" style="text-decoration:none;color:inherit">
                 <div class="icon-row"><i class="fa-solid fa-book" style="color:var(--warning)"></i></div>
                 <div class="name">Dictionary</div>
                 <div class="desc">Try a small list of common, weak keys. Astonishingly effective against human-chosen passwords.</div>
-                <div class="meters">
-                    <div class="meter">cost <div class="dots"><span class="dot on" style="background:var(--warning)"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+                <div class="meters" style="flex-direction:column;gap:6px;align-items:flex-start">
+                    <div class="meter">Cost: <div class="dots"><span class="dot on" style="background:var(--warning)"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
                 </div>
-                <a href="/wiki#dictionary">Wiki <i class="fa-solid fa-arrow-right"></i></a>
-            </div>
+                <span class="more">Wiki <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
         </div>
     </div>
 </section>
