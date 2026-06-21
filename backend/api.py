@@ -51,7 +51,7 @@ class SimManager:
     def __init__(self):
         self.sim: Simulation = Simulation(num_communicators=4, num_attackers=2,
                                           attacker_temperature=1.0, seed=42)
-        self.running: bool = False
+        self.running: bool = False       # start paused
         self.tick_interval: float = 0.9
         self._task: Optional[asyncio.Task] = None
         self._subscribers: list[WebSocket] = []
@@ -201,8 +201,8 @@ sim_manager = SimManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-start the sim when the server boots.
-    await sim_manager.start()
+    # Do NOT auto-start the sim — let the user press Start.
+    # The sim_manager is created in the paused state already.
     yield
     # On shutdown, pause the background task.
     await sim_manager.pause()
@@ -509,7 +509,8 @@ async def cipher_generate_key(req: dict):
 
 @app.get("/api/wiki")
 async def wiki_list():
-    return wiki_module.list_terms()
+    return {"terms": wiki_module.list_terms(),
+            "categories": wiki_module.list_categories()}
 
 
 @app.get("/api/wiki/{term}")

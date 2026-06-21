@@ -3,27 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RawCrypt — Learn Cryptography by Watching Agents Battle</title>
+    <title>RawCrypt — Watch cryptography come alive</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <nav class="navbar">
     <div class="navbar-inner">
-        <a href="/" class="brand">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>RawCrypt</span>
+        <a href="/" class="brand-mark">
+            <span class="glyph">R</span>
+            <span class="word">Raw<b>Crypt</b></span>
         </a>
         <div class="nav-links">
-            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
-            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> Simulation</a>
-            <a href="/playground"><i class="fa-solid fa-flask"></i> Playground</a>
-            <a href="/wiki"><i class="fa-solid fa-book"></i> Wiki</a>
-            <button class="theme-toggle" aria-label="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+            <a href="/"><i class="fa-solid fa-house"></i> <span>Home</span></a>
+            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> <span>Simulation</span></a>
+            <a href="/playground"><i class="fa-solid fa-flask"></i> <span>Playground</span></a>
+            <a href="/wiki"><i class="fa-solid fa-book"></i> <span>Wiki</span></a>
+            <span class="theme-slider" role="button" aria-label="Toggle theme">
+                <i class="fa-solid fa-sun ico sun"></i>
+                <i class="fa-solid fa-moon ico moon"></i>
+            </span>
         </div>
     </div>
 </nav>
@@ -31,13 +34,20 @@
 <section class="hero">
     <canvas id="matrix-canvas"></canvas>
     <div class="hero-content">
-        <h1>Watch cryptography <span class="accent">come alive</span>.</h1>
-        <p>Spies send secret messages. Hackers try to break them. Strategies evolve in real time. Learn the maths behind every cipher by watching the drama unfold.</p>
+        <div class="section-marker">DOSSIER &middot; FIELD MANUAL</div>
+        <h1>Secrets get <span class="accent">sent</span>.<br>Hackers get <span class="strike">caught</span> <span class="accent">busy</span>.</h1>
+        <p class="lead">A live, multi-agent battlefield where communicators encrypt, attackers intercept, and every cipher's reputation is on the line. Watch the maths happen.</p>
+        <div class="hero-meta">
+            <span><b>9</b> ciphers</span>
+            <span><b>4</b> attacks</span>
+            <span>up to <b>10</b> spies</span>
+            <span>up to <b>5</b> hackers</span>
+        </div>
         <div class="hero-cta">
             <a href="/simulation" class="btn btn-primary">
-                <i class="fa-solid fa-play"></i> Enter the simulation
+                <i class="fa-solid fa-play"></i> Enter the field
             </a>
-            <a href="/playground" class="btn btn-secondary">
+            <a href="/playground" class="btn btn-outline">
                 <i class="fa-solid fa-flask"></i> Try the ciphers
             </a>
         </div>
@@ -47,77 +57,36 @@
 <section class="section">
     <div class="container">
         <div class="section-header">
-            <h2>What is RawCrypt?</h2>
-            <p>A live, multi-agent playground where communicators encrypt, attackers intercept, and everyone learns from their mistakes.</p>
+            <div class="section-marker">01 &middot; THE PREMISE</div>
+            <h2 class="field-title">A war of wits, waged in math.</h2>
+            <p class="field-subtitle">Spies send encrypted messages across a shared channel. Hackers listen in and try to crack them. Both sides learn from every win and every loss. Watch their strategies drift in real time.</p>
         </div>
-        <div class="feature-grid">
-            <a href="/simulation" class="feature-card card-hover">
-                <i class="fa-solid fa-users"></i>
-                <h3>Live agent battle</h3>
-                <p>Watch 4-10 communicator agents exchange messages with 9 different ciphers while 1-5 attackers try to break them in real time.</p>
-            </a>
-            <a href="/simulation" class="feature-card card-hover">
-                <i class="fa-solid fa-chart-line"></i>
-                <h3>Evolving strategies</h3>
-                <p>Agents learn from their hits and misses. Communicators abandon broken ciphers; attackers double down on what works.</p>
-            </a>
-            <a href="/playground" class="feature-card card-hover">
-                <i class="fa-solid fa-key"></i>
-                <h3>Hands-on ciphers</h3>
-                <p>Encrypt and decrypt your own messages with shift, Vigenere, Feistel, AES, RSA, and more — with guided key help.</p>
-            </a>
-            <a href="/wiki" class="feature-card card-hover">
-                <i class="fa-solid fa-book"></i>
-                <h3>Crypto wiki</h3>
-                <p>Confused by terms like "plaintext", "frequency analysis", or "LFSR"? Look them up in our teen-friendly wiki.</p>
-            </a>
-            <a href="/simulation" class="feature-card card-hover">
-                <i class="fa-solid fa-mobile-screen"></i>
-                <h3>Spy on the agents</h3>
-                <p>Click any communicator to open their phone and read every encrypted message they've sent — and see which got cracked.</p>
-            </a>
-            <a href="/simulation" class="feature-card card-hover">
-                <i class="fa-solid fa-skull-crossbones"></i>
-                <h3>4 real attacks</h3>
-                <p>Brute force, frequency analysis, known-plaintext, and dictionary attacks — implemented honestly, not faked.</p>
-            </a>
-        </div>
-    </div>
-</section>
 
-<section class="section" style="background: var(--bg-elev-2);">
-    <div class="container">
-        <div class="section-header">
-            <h2>How it works</h2>
-            <p>The scoring method that keeps every cipher in play.</p>
-        </div>
-        <div class="grid-3">
-            <div class="card">
-                <div style="font-size: 2.5rem; color: var(--accent); margin-bottom: 12px;">
-                    <i class="fa-solid fa-1"></i>
-                </div>
+        <div class="manifesto">
+            <div class="manifesto-item">
+                <div class="num">— PREMISE 01</div>
                 <h3>Cost vs security</h3>
-                <p>Every cipher has a cost (1-10) and a security rating (1-10). Communicators weigh them based on the message's security level — like choosing between a bike lock and a bank vault.</p>
+                <p>Every cipher has a cost (1-10) and a security rating (1-10). Spies pick the cheapest cipher that gets the job done. Would you bolt your diary with a bank vault?</p>
+                <a href="/wiki/cipher" class="more">Read more <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="card">
-                <div style="font-size: 2.5rem; color: var(--accent); margin-bottom: 12px;">
-                    <i class="fa-solid fa-2"></i>
-                </div>
-                <h3>Empirical learning</h3>
-                <p>Agents track which ciphers get broken and which attacks succeed. They update their strategy with exponential moving average — recent results matter more than ancient history.</p>
+            <div class="manifesto-item">
+                <div class="num">— PREMISE 02</div>
+                <h3>Learning from scars</h3>
+                <p>Every time a cipher gets cracked, the spy who used it becomes less likely to use it again. Every time an attack lands, the hacker reaches for it more often.</p>
+                <a href="/wiki/attack" class="more">Read more <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <div class="card">
-                <div style="font-size: 2.5rem; color: var(--accent); margin-bottom: 12px;">
-                    <i class="fa-solid fa-3"></i>
-                </div>
-                <h3>Softmax sampling</h3>
-                <p>Agents pick actions via a softmax over utilities, so they keep exploring instead of locking onto one option. That's why you'll see 7-9 ciphers in use — not all RSA.</p>
+            <div class="manifesto-item">
+                <div class="num">— PREMISE 03</div>
+                <h3>Always exploring</h3>
+                <p>Agents never fully commit to one cipher or one attack. They keep exploring the alternatives so the leaderboard keeps shifting. Boring would be everyone picking RSA.</p>
+                <a href="/simulation" class="more">See it live <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-        </div>
-        <div class="text-center mt-4">
-            <a href="/simulation" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-arrow-right"></i> See it in action
-            </a>
+            <div class="manifesto-item">
+                <div class="num">— PREMISE 04</div>
+                <h3>Real cryptography</h3>
+                <p>The attacks are honest. Brute force really tries every key. Frequency analysis really ranks byte frequencies. The dictionary attack really factors the toy RSA modulus n=143.</p>
+                <a href="/playground" class="more">Try them yourself <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
         </div>
     </div>
 </section>
@@ -125,29 +94,176 @@
 <section class="section">
     <div class="container">
         <div class="section-header">
-            <h2>The 9 ciphers</h2>
-            <p>From the trivial Caesar shift to toy RSA — all implemented from scratch in Python.</p>
+            <div class="section-marker">02 &middot; THE ARSENAL</div>
+            <h2 class="field-title">Nine ciphers, four attacks.</h2>
+            <p class="field-subtitle">From the 2000-year-old Caesar shift to toy RSA — every cipher is implemented from scratch in Python. Click any to read its wiki page.</p>
         </div>
-        <div class="grid-3">
-            <div class="card"><h3><span class="badge badge-accent">cost 1</span> <span class="badge badge-danger">sec 1</span> Shift</h3><p>The Caesar cipher: every byte shifted by a fixed amount. Trivial to brute-force.</p></div>
-            <div class="card"><h3><span class="badge badge-accent">cost 1</span> <span class="badge badge-warning">sec 2</span> Rail Fence</h3><p>A transposition cipher that writes the message in a zig-zag pattern across N rails.</p></div>
-            <div class="card"><h3><span class="badge badge-accent">cost 2</span> <span class="badge badge-warning">sec 3</span> Permutation</h3><p>Each 8-byte block has its bytes rearranged according to a fixed permutation map.</p></div>
-            <div class="card"><h3><span class="badge badge-accent">cost 2</span> <span class="badge badge-warning">sec 3</span> Vigenère</h3><p>A polyalphabetic cipher that uses a repeating key — defeated the frequency analysis for 300 years.</p></div>
-            <div class="card"><h3><span class="badge badge-accent">cost 3</span> <span class="badge badge-warning">sec 4</span> Substitution</h3><p>Each printable byte maps to a different byte. 95! possible keys, but frequency analysis breaks it.</p></div>
-            <div class="card"><h3><span class="badge badge-accent">cost 2</span> <span class="badge badge-success">sec 5</span> Stream</h3><p>An LFSR generates a pseudo-random keystream, XORed with the plaintext byte-by-byte.</p></div>
-            <div class="card"><h3><span class="badge badge-accent">cost 3</span> <span class="badge badge-success">sec 6</span> Feistel</h3><p>A 4-round toy Feistel network with XOR + nibble-swap. Same circuit encrypts and decrypts.</p></div>
-            <div class="card"><h3><span class="badge badge-warning">cost 5</span> <span class="badge badge-success">sec 8</span> AES</h3><p>A 2-round toy AES with 16-bit blocks. Real AES uses 128-bit blocks and 10-14 rounds.</p></div>
-            <div class="card"><h3><span class="badge badge-danger">cost 8</span> <span class="badge badge-success">sec 10</span> RSA</h3><p>The only asymmetric cipher. Based on the difficulty of factoring n = p × q. Unbreakable in-sim.</p></div>
+
+        <div class="cipher-roster">
+            <div class="cipher-roster-cell">
+                <div class="name">Shift</div>
+                <div class="desc">Caesar's classic. Each byte nudged forward by a fixed amount.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span>
+                    <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span>
+                    <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <a href="/wiki/shift" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">Rail Fence</div>
+                <div class="desc">A zig-zag transposition. Cheap but predictable.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <a href="/wiki/rail_fence" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">Permutation</div>
+                <div class="desc">8 bytes get shuffled. 40,320 possible shuffles.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <a href="/wiki/permutation" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">Vigenère</div>
+                <div class="desc">A repeating-key cipher that fooled Europe for 300 years.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <a href="/wiki/vigenere" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">Substitution</div>
+                <div class="desc">Every byte maps to another. Frequency analysis cracks it.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot"></span>
+                </div>
+                <a href="/wiki/substitution" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">Stream</div>
+                <div class="desc">A pseudo-random keystream XORed with the message.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
+                </div>
+                <a href="/wiki/stream" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">Feistel</div>
+                <div class="desc">A 4-round toy network. Same circuit encrypts and decrypts.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
+                </div>
+                <a href="/wiki/feistel" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">AES</div>
+                <div class="desc">2-round toy AES. The real one has 10-14 rounds.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
+                </div>
+                <a href="/wiki/aes" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div class="cipher-roster-cell">
+                <div class="name">RSA</div>
+                <div class="desc">The only asymmetric cipher. Based on factoring big numbers.</div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">cost</span>
+                    <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+                </div>
+                <div class="meter">
+                    <span class="annotation" style="font-size:0.7rem">sec</span>
+                    <span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span><span class="dot on sec"></span>
+                </div>
+                <a href="/wiki/rsa" class="more" style="margin-top:10px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em">Wiki <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-marker">03 &middot; GET STARTED</div>
+            <h2 class="field-title">Three doors in.</h2>
+            <p class="field-subtitle">Each one teaches cryptography differently. Pick the one that fits your mood.</p>
+        </div>
+
+        <div class="manifesto">
+            <a href="/simulation" class="manifesto-item" style="text-decoration:none;color:inherit">
+                <div class="num">— DOOR A</div>
+                <h3>The Simulation</h3>
+                <p>Watch live agents battle in real time. Spy on their phones. Read every encrypted message they send.</p>
+                <span class="more">Open <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/playground" class="manifesto-item" style="text-decoration:none;color:inherit">
+                <div class="num">— DOOR B</div>
+                <h3>The Playground</h3>
+                <p>Encrypt your own messages with each cipher. Watch the maths happen step by step.</p>
+                <span class="more">Open <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+            <a href="/wiki" class="manifesto-item" style="text-decoration:none;color:inherit">
+                <div class="num">— DOOR C</div>
+                <h3>The Wiki</h3>
+                <p>Plain-English explanations of every term. From plaintext to LFSR — no jargon left behind.</p>
+                <span class="more">Open <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
         </div>
     </div>
 </section>
 
 <footer>
-    <div class="brand">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span>RawCrypt</span>
+    <div class="container">
+        <div>
+            <a href="/" class="brand-mark">
+                <span class="glyph">R</span>
+                <span class="word">Raw<b>Crypt</b></span>
+            </a>
+        </div>
+        <div class="annotation">FIELD MANUAL &middot; v1.0 &middot; BUILT FOR CURIOUS TEENAGERS</div>
     </div>
-    <p>An educational cryptography playground. Built for curious teenagers.</p>
 </footer>
 
 <script src="/js/common.js"></script>

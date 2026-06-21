@@ -1,7 +1,38 @@
 // Shared utilities for RawCrypt frontend.
 
 // ---------------------------------------------------------------------------
-// Theme handling — default to system theme; user can override via toggle.
+// Friendly name maps — convert snake_case slugs to human-readable names.
+// ---------------------------------------------------------------------------
+
+const CIPHER_NAMES = {
+    shift:        'Shift',
+    rail_fence:   'Rail Fence',
+    permutation:  'Permutation',
+    vigenere:     'Vigenère',
+    substitution: 'Substitution',
+    stream:       'Stream',
+    feistel:      'Feistel',
+    aes:          'AES',
+    rsa:          'RSA',
+};
+
+const ATTACK_NAMES = {
+    brute_force:      'Brute Force',
+    frequency:        'Frequency',
+    known_plaintext:  'Known Plaintext',
+    dictionary:       'Dictionary',
+};
+
+function cipherName(slug) { return CIPHER_NAMES[slug] || slug; }
+function attackName(slug) { return ATTACK_NAMES[slug] || slug; }
+
+// CSS class slugs — replace underscores with hyphens for tag classes.
+function tagClass(prefix, slug) {
+    return `${prefix}-${slug.replace(/_/g, '-')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Theme handling — slider control, defaults to system.
 // ---------------------------------------------------------------------------
 
 (function initTheme() {
@@ -11,42 +42,38 @@
     }
 })();
 
-function toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = current ? current === 'dark' : prefersDark;
-    const next = isDark ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('rawcrypt-theme', next);
-    // Update icon
-    document.querySelectorAll('.theme-toggle i').forEach(el => {
-        el.className = next === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-    });
-}
-
 function currentThemeIsDark() {
     const attr = document.documentElement.getAttribute('data-theme');
     if (attr) return attr === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Set initial icon based on theme.
+function applyThemeVisuals() {
     const isDark = currentThemeIsDark();
-    document.querySelectorAll('.theme-toggle i').forEach(el => {
-        el.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    document.querySelectorAll('.theme-slider').forEach(el => {
+        el.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    });
+}
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('rawcrypt-theme', theme);
+    applyThemeVisuals();
+}
+
+function toggleTheme() {
+    setTheme(currentThemeIsDark() ? 'light' : 'dark');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    applyThemeVisuals();
+    // Wire up theme sliders.
+    document.querySelectorAll('.theme-slider').forEach(el => {
+        el.addEventListener('click', toggleTheme);
     });
     // Listen for system theme changes (only if no explicit override).
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        if (!localStorage.getItem('rawcrypt-theme')) {
-            document.querySelectorAll('.theme-toggle i').forEach(el => {
-                el.className = e.matches ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-            });
-        }
-    });
-    // Wire up toggles.
-    document.querySelectorAll('.theme-toggle').forEach(el => {
-        el.addEventListener('click', toggleTheme);
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (!localStorage.getItem('rawcrypt-theme')) applyThemeVisuals();
     });
     // Highlight active nav link.
     const path = window.location.pathname.split('/').pop() || 'index.html';
@@ -67,17 +94,15 @@ function cssVar(name) {
 }
 
 // ---------------------------------------------------------------------------
-// Agent color palette — keep in sync with CSS variables.
+// Agent color palette.
 // ---------------------------------------------------------------------------
 
 const COMM_COLORS = [
-    '#ff6b6b', '#4ecdc4', '#ffe66d', '#a78bfa', '#95e1d3',
-    '#f38181', '#aa96da', '#fcbad3', '#7bc4a4', '#e8b04b',
+    '#c44536', '#4a7c2e', '#d4a017', '#5b7c99',
+    '#8b5a3c', '#6b4e8d', '#c97b63', '#4d8c8c',
+    '#a8703e', '#7a6e4a',
 ];
-
-const ATK_COLORS = [
-    '#d8392b', '#b53737', '#8b2c2c', '#6b2020', '#4a1818',
-];
+const ATK_COLORS = ['#7a1f1f', '#5d1a1a', '#8c2e1a', '#6b2020', '#4a1818'];
 
 function commColor(idx) { return COMM_COLORS[idx % COMM_COLORS.length]; }
 function atkColor(idx)  { return ATK_COLORS[idx % ATK_COLORS.length]; }
@@ -91,12 +116,16 @@ function colorForAgent(name, role, idx) {
     return _colorByName[name];
 }
 
+function resetColorCache() {
+    Object.keys(_colorByName).forEach(k => delete _colorByName[k]);
+}
+
 function initials(name) {
     return name.split(/[\s-]+/).map(s => s[0]).join('').toUpperCase().slice(0, 2);
 }
 
 // ---------------------------------------------------------------------------
-// Helper: make a websocket URL relative to the current page.
+// WebSocket URL helper.
 // ---------------------------------------------------------------------------
 
 function wsUrl(path) {
@@ -113,7 +142,6 @@ async function apiGet(path) {
     if (!r.ok) throw new Error(`${path}: ${r.status}`);
     return r.json();
 }
-
 async function apiPost(path, body) {
     const r = await fetch(path, {
         method: 'POST',
@@ -124,13 +152,26 @@ async function apiPost(path, body) {
 }
 
 // ---------------------------------------------------------------------------
-// Cipher pills — render a coloured pill for a cipher or attack name.
+// Friendly cipher / attack tags.
 // ---------------------------------------------------------------------------
 
-function cipherPill(name) {
-    return `<span class="cipher-pill pill-${name}">${name}</span>`;
+function cipherTag(slug) {
+    return `<span class="tag ${tagClass('tag-cipher', slug)}">${cipherName(slug)}</span>`;
+}
+function attackTag(slug) {
+    return `<span class="tag ${tagClass('tag-attack', slug)}">${attackName(slug)}</span>`;
 }
 
-function attackPill(name) {
-    return `<span class="attack-pill pill-${name}">${name}</span>`;
+// ---------------------------------------------------------------------------
+// Escape HTML.
+// ---------------------------------------------------------------------------
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+// Copy text helper.
+function copyText(text) {
+    navigator.clipboard.writeText(text);
 }

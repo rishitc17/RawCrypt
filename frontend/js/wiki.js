@@ -1,26 +1,30 @@
-// Wiki page logic — fetches term list and renders content based on URL hash.
+// Wiki page logic.
 
-let terms = [];
+let wikiData = null;
 let currentTerm = null;
 
 async function loadWiki() {
-    terms = await apiGet('/api/wiki');
+    wikiData = await apiGet('/api/wiki');
     renderSidebar();
-    // Determine which term to show from URL hash.
     const hash = window.location.hash.slice(1);
-    const initial = hash && terms.find(t => t.slug === hash) ? hash : 'plaintext';
+    const allSlugs = wikiData.terms.map(t => t.slug);
+    const initial = hash && allSlugs.includes(hash) ? hash : 'plaintext';
     showTerm(initial);
 }
 
 function renderSidebar() {
-    const html = terms.map(t => `
-        <a href="#${t.slug}" class="${currentTerm === t.slug ? 'active' : ''}" onclick="showTerm('${t.slug}')">
-            <i class="fa-solid ${t.icon}" style="width:16px;text-align:center"></i>
-            ${t.title}
-        </a>
+    const html = (wikiData.categories || []).map(([cat, terms]) => `
+        <div class="sidebar-group">
+            <div class="sidebar-group-title">${cat}</div>
+            ${terms.map(t => `
+                <a href="#${t.slug}" class="${currentTerm === t.slug ? 'active' : ''}" onclick="showTerm('${t.slug}')">
+                    <i class="fa-solid ${t.icon}"></i> ${t.title}
+                </a>
+            `).join('')}
+        </div>
     `).join('');
     document.getElementById('wiki-sidebar').innerHTML = `
-        <h4>Terms</h4>
+        <div class="sidebar-header">Index</div>
         ${html}
     `;
 }
@@ -39,13 +43,12 @@ async function showTerm(slug) {
         return;
     }
     const related = (t.related || []).map(r => {
-        const rt = terms.find(x => x.slug === r);
+        const rt = wikiData.terms.find(x => x.slug === r);
         return rt
-            ? `<a href="#${r}" class="badge badge-accent" onclick="showTerm('${r}')">${rt.title}</a>`
-            : `<span class="badge">${r}</span>`;
+            ? `<a href="#${r}" class="tag tag-accent" onclick="showTerm('${r}')">${rt.title}</a>`
+            : `<span class="tag">${r}</span>`;
     }).join(' ');
 
-    // Render body paragraphs (split on \n\n).
     const bodyHtml = (t.body || '').split(/\n\n+/).map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
 
     document.getElementById('wiki-content').innerHTML = `
@@ -58,10 +61,6 @@ async function showTerm(slug) {
             <div class="related-tags">${related}</div>
         </div>
     `;
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 }
 
 document.addEventListener('DOMContentLoaded', loadWiki);

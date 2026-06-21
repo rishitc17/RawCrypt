@@ -6,29 +6,35 @@
     <title>Wiki — RawCrypt</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <nav class="navbar">
     <div class="navbar-inner">
-        <a href="/" class="brand">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>RawCrypt</span>
+        <a href="/" class="brand-mark">
+            <span class="glyph">R</span>
+            <span class="word">Raw<b>Crypt</b></span>
         </a>
         <div class="nav-links">
-            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
-            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> Simulation</a>
-            <a href="/playground"><i class="fa-solid fa-flask"></i> Playground</a>
-            <a href="/wiki"><i class="fa-solid fa-book"></i> Wiki</a>
-            <button class="theme-toggle" aria-label="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+            <a href="/"><i class="fa-solid fa-house"></i> <span>Home</span></a>
+            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> <span>Simulation</span></a>
+            <a href="/playground"><i class="fa-solid fa-flask"></i> <span>Playground</span></a>
+            <a href="/wiki"><i class="fa-solid fa-book"></i> <span>Wiki</span></a>
+            <span class="theme-slider" role="button" aria-label="Toggle theme">
+                <i class="fa-solid fa-sun ico sun"></i>
+                <i class="fa-solid fa-moon ico moon"></i>
+            </span>
         </div>
     </div>
 </nav>
 
 <div class="page-header">
-    <h1>Crypto Wiki</h1>
-    <p>Look up any cryptography term in plain English. Click around — every term links to its relatives.</p>
+    <div class="container">
+        <div class="section-marker">DOSSIER &middot; REFERENCE</div>
+        <h1>The Wiki</h1>
+        <p>Look up any cryptography term in plain English. Click around — every term links to its relatives.</p>
+    </div>
 </div>
 
 <div class="container">
@@ -43,11 +49,9 @@
 </div>
 
 <footer style="margin-top:60px">
-    <div class="brand">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span>RawCrypt</span>
+    <div class="container">
+        <div class="annotation">FIELD MANUAL &middot; REFERENCE MODE</div>
     </div>
-    <p>Knowledge is the best cipher.</p>
 </footer>
 
 <script src="/js/common.js"></script>

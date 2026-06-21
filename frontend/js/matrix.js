@@ -20,6 +20,9 @@ function startMatrixRain(canvas) {
     const fontSize = 16;
     let columns = Math.floor(canvas.offsetWidth / fontSize);
     let drops = new Array(columns).fill(0).map(() => Math.random() * -100);
+    // Slow fall: drops advance every N frames instead of every frame.
+    const FRAMES_PER_STEP = 4;
+    let frameCount = 0;
 
     function recomputeColumns() {
         columns = Math.floor(canvas.offsetWidth / fontSize);
@@ -42,27 +45,33 @@ function startMatrixRain(canvas) {
     function draw() {
         if (!running) return;
 
-        // Translucent black fill for the trailing fade effect.
+        // Translucent fill for the trailing fade effect — slower trails.
         const isDark = currentThemeIsDark();
-        ctx.fillStyle = isDark ? 'rgba(20, 20, 20, 0.08)' : 'rgba(250, 247, 242, 0.08)';
+        ctx.fillStyle = isDark ? 'rgba(14, 13, 10, 0.04)' : 'rgba(244, 239, 228, 0.04)';
         ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
 
-        const accent = cssVar('--accent') || (isDark ? '#39ff14' : '#ff7a1a');
-        ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
+        const accent = cssVar('--accent') || (isDark ? '#c4ff42' : '#d8541b');
+        ctx.font = `${fontSize}px 'IBM Plex Mono', monospace`;
+
+        // Only advance drops every N frames — slows the rain.
+        const advance = (frameCount % FRAMES_PER_STEP === 0);
+        frameCount++;
 
         for (let i = 0; i < drops.length; i++) {
             const char = chars[Math.floor(Math.random() * chars.length)];
             const x = i * fontSize;
             const y = drops[i] * fontSize;
 
-            // Leading char is bright white; rest are accent colour.
-            ctx.fillStyle = Math.random() > 0.97 ? '#ffffff' : accent;
+            // Leading char is bright; rest are accent colour.
+            ctx.fillStyle = Math.random() > 0.985 ? '#ffffff' : accent;
             ctx.fillText(char, x, y);
 
-            if (y > canvas.offsetHeight && Math.random() > 0.975) {
-                drops[i] = 0;
+            if (advance) {
+                if (y > canvas.offsetHeight && Math.random() > 0.985) {
+                    drops[i] = 0;
+                }
+                drops[i] += 0.5;
             }
-            drops[i] += 0.5;
         }
         requestAnimationFrame(draw);
     }
