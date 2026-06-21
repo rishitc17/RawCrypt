@@ -335,20 +335,32 @@ function connect() {
     };
 }
 
-// Pause when user leaves the simulation page.
-document.addEventListener('visibilitychange', async () => {
-    if (document.hidden && state.running) {
-        try { await apiPost('/api/sim/pause', {}); } catch(e){}
-        state.running = false;
-        updateControlUI();
-    }
-});
-window.addEventListener('pagehide', async () => {
-    if (state.running) {
-        try { await apiPost('/api/sim/pause', {}); } catch(e){}
-        state.running = false;
-    }
-});
+// Pause when the user navigates to a different RawCrypt page.
+// We intercept clicks on internal links and the popstate event (back/forward).
+// We do NOT pause on tab/window switch (visibilitychange) — only on actual
+// in-site navigation.
+function setupNavigationPause() {
+    // Intercept internal link clicks.
+    document.addEventListener('click', async (e) => {
+        const link = e.target.closest('a');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('http') || href.startsWith('#') ||
+            href.startsWith('mailto:') || href.startsWith('tel:')) return;
+        // Internal navigation — pause the sim before leaving.
+        if (state.running) {
+            try { await apiPost('/api/sim/pause', {}); } catch(e){}
+            state.running = false;
+        }
+    });
+    // Back/forward navigation.
+    window.addEventListener('popstate', async () => {
+        if (state.running) {
+            try { await apiPost('/api/sim/pause', {}); } catch(e){}
+            state.running = false;
+        }
+    });
+}
 
 // ---------------------------------------------------------------------------
 // Sim control.
@@ -358,14 +370,7 @@ async function simStart() {
     // If the sim hasn't started yet (tick == 0) and the sliders have
     // been changed, apply them first via a reset, then start.
     if (state.stats && state.stats.tick === 0) {
-        const cfg = {
-            num_communicators: parseInt(document.getElementById('num-comms').value),
-            num_attackers: parseInt(document.getElementById('num-atks').value),
-            attacker_temperature: parseFloat(document.getElementById('atk-temp').value),
-            communicator_temperature: parseFloat(document.getElementById('comm-temp').value),
-            tick_interval: 1.0 / parseFloat(document.getElementById('tick-rate').value),
-            seed: parseInt(document.getElementById('seed').value) || null,
-        };
+        const cfg = readConfigFromControls();
         // Only reset if any setting differs from the current config.
         const changed = JSON.stringify(cfg) !== JSON.stringify({
             ...state.config,
@@ -388,21 +393,26 @@ async function simPause() {
     updateControlUI();
 }
 
-async function simReset() {
-    const cfg = {
+function readConfigFromControls() {
+    const tier = document.getElementById('tick-speed')?.value || 'medium';
+    const interval = {low: 2.0, medium: 0.9, high: 0.3}[tier];
+    return {
         num_communicators: parseInt(document.getElementById('num-comms').value),
         num_attackers: parseInt(document.getElementById('num-atks').value),
         attacker_temperature: parseFloat(document.getElementById('atk-temp').value),
         communicator_temperature: parseFloat(document.getElementById('comm-temp').value),
-        tick_interval: 1.0 / parseFloat(document.getElementById('tick-rate').value),
+        tick_interval: interval,
         seed: parseInt(document.getElementById('seed').value) || null,
     };
+}
+
+async function simReset() {
+    const cfg = readConfigFromControls();
     await apiPost('/api/sim/reset', cfg);
     state.config = {...state.config, ...cfg};
     state.events = [];
     state.animations = [];
     state.pendingAnimations = [];
-    // Don't wipe state.agents here — the next snapshot will replace them.
     renderRoster();
     renderLog();
     updateStatsPanels();
@@ -432,17 +442,28 @@ function updateControlUI() {
     document.getElementById('num-atks').value = state.config.num_attackers;
     document.getElementById('atk-temp').value = state.config.attacker_temperature;
     document.getElementById('comm-temp').value = state.config.communicator_temperature;
-    const rate = 1.0 / ti;
-    document.getElementById('tick-rate').value = rate;
     document.getElementById('num-comms-val').textContent = state.config.num_communicators;
     document.getElementById('num-atks-val').textContent = state.config.num_attackers;
     document.getElementById('atk-temp-val').textContent = state.config.attacker_temperature.toFixed(2);
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
-    document.getElementById('tick-rate-val').textContent = rate.toFixed(1) + '/s';
 
-    // Lock reset-required sliders when the sim has run any ticks.
+    // Tick speed: show as Low / Medium / High label.
+    const tickSelect = document.getElementById('tick-speed');
+    if (tickSelect) {
+        // Map tick_interval to speed tier.
+        let tier = 'medium';
+        if (ti >= 1.5) tier = 'low';
+        else if (ti <= 0.4) tier = 'high';
+        tickSelect.value = tier;
+        const tierLabel = {low: 'Low', medium: 'Medium', high: 'High'}[tier];
+        const tierVal = document.getElementById('tick-speed-val');
+        if (tierVal) tierVal.textContent = tierLabel;
+    }
+
+    // Lock all reset-required sliders AND greediness/caution when tick > 0.
+    // Only tick speed stays live.
     const lockResetSliders = (state.stats && state.stats.tick > 0);
-    ['num-comms', 'num-atks', 'seed'].forEach(id => {
+    ['num-comms', 'num-atks', 'seed', 'atk-temp', 'comm-temp'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.disabled = lockResetSliders;
@@ -450,11 +471,6 @@ function updateControlUI() {
             el.style.cursor = lockResetSliders ? 'not-allowed' : '';
         }
     });
-    // Show/hide the "reset to apply" hint.
-    const resetHint = document.getElementById('reset-hint');
-    if (resetHint) {
-        resetHint.style.display = lockResetSliders ? '' : 'none';
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -514,7 +530,7 @@ function updateStatsPanels() {
     document.getElementById('stat-survival').textContent = s.summary.overall_survival_pct.toFixed(0) + '%';
     document.getElementById('stat-ciphers').textContent = s.summary.distinct_ciphers_used;
 
-    // Cipher usage — stacked bars (Sent + Broken)
+    // Cipher usage — single bar showing % of traffic, with red broken overlay
     const cipherRows = (s.cipher_usage || [])
         .map(c => ({...c, usage_pct: s.summary.total_messages ? 100 * c.used / s.summary.total_messages : 0,
                      break_pct: c.used ? 100 * c.broken / c.used : 0}))
@@ -528,31 +544,29 @@ function updateStatsPanels() {
         cipherEl.innerHTML = cipherRows.map(c => {
             const color = cipherColorFor(c.name);
             const breakColor = cssVar('--danger');
+            // The broken portion is shown as a red segment inside the usage bar.
+            const brokenSegmentPct = c.usage_pct * (c.break_pct / 100);
             return `
                 <div class="usage-row tooltip">
                     <div class="name">${cipherName(c.name)}</div>
                     <div class="bars">
-                        <div class="bar-label"><span>Sent</span><span class="right">${c.usage_pct.toFixed(0)}% of traffic</span></div>
-                        <div class="bar-track">
-                            <div class="bar-fill" style="width:${c.usage_pct}%;background:${color}"></div>
-                        </div>
-                        <div class="bar-label" style="margin-top:4px"><span>Broken</span><span class="right">${c.break_pct.toFixed(0)}% of sent</span></div>
-                        <div class="bar-track">
-                            <div class="bar-fill" style="width:${c.break_pct}%;background:${breakColor}"></div>
+                        <div class="bar-track" style="position:relative">
+                            <div class="bar-fill" style="width:${c.usage_pct}%;background:${color};position:absolute;left:0;top:0"></div>
+                            <div class="bar-fill" style="width:${brokenSegmentPct}%;background:${breakColor};position:absolute;left:0;top:0;opacity:0.85"></div>
                         </div>
                     </div>
                     <span class="tooltip-text">
-                        <div class="row"><span>Sent</span><b>${c.used}</b></div>
-                        <div class="row"><span>Broken</span><b>${c.broken}</b></div>
-                        <div class="row"><span>Break rate</span><b>${c.break_pct.toFixed(1)}%</b></div>
                         <div class="row"><span>Share of traffic</span><b>${c.usage_pct.toFixed(1)}%</b></div>
+                        <div class="row"><span>Sent</span><b>${c.used}</b></div>
+                        <div class="row"><span>Broken</span><b style="color:#ff8a80">${c.broken}</b></div>
+                        <div class="row"><span>Break rate</span><b>${c.break_pct.toFixed(1)}%</b></div>
                     </span>
                 </div>
             `;
         }).join('');
     }
 
-    // Attack usage — single bar (Success rate)
+    // Attack usage — single bar showing success rate
     const totalAtks = (s.attack_usage || []).reduce((sum, a) => sum + a.used, 0);
     const atkRows = (s.attack_usage || [])
         .map(a => ({...a, usage_pct: totalAtks ? 100 * a.used / totalAtks : 0,
@@ -570,15 +584,14 @@ function updateStatsPanels() {
                 <div class="usage-row tooltip">
                     <div class="name">${attackName(a.name)}</div>
                     <div class="bars">
-                        <div class="bar-label"><span>Success rate</span><span class="right">${a.succ_pct.toFixed(0)}% of attempts</span></div>
                         <div class="bar-track">
                             <div class="bar-fill" style="width:${a.succ_pct}%;background:${color}"></div>
                         </div>
                     </div>
                     <span class="tooltip-text">
+                        <div class="row"><span>Success rate</span><b>${a.succ_pct.toFixed(1)}%</b></div>
                         <div class="row"><span>Attempts</span><b>${a.used}</b></div>
                         <div class="row"><span>Successes</span><b>${a.success}</b></div>
-                        <div class="row"><span>Success rate</span><b>${a.succ_pct.toFixed(1)}%</b></div>
                         <div class="row"><span>Share of attacks</span><b>${a.usage_pct.toFixed(1)}%</b></div>
                     </span>
                 </div>
@@ -598,15 +611,22 @@ function attackColorFor(slug) {
 }
 
 // ---------------------------------------------------------------------------
-// Agent roster.
+// Agent roster — two tabs (Communicators / Hackers).
 // ---------------------------------------------------------------------------
+
+let rosterTab = 'communicators';
+
+function setRosterTab(tab) {
+    rosterTab = tab;
+    renderRoster();
+}
 
 function renderRoster() {
     const comms = state.agents.filter(a => a.role === 'communicator');
     const atks = state.agents.filter(a => a.role === 'attacker');
+    const container = document.getElementById('agent-roster');
     if (comms.length === 0 && atks.length === 0) {
-        document.getElementById('agent-roster').innerHTML =
-            '<div class="empty-state"><i class="fa-solid fa-users-slash"></i><div>Waiting for agents...</div></div>';
+        container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-users-slash"></i><div>Waiting for agents...</div></div>';
         return;
     }
 
@@ -625,7 +645,7 @@ function renderRoster() {
                 </div>
             </div>
         `;
-    }).join('');
+    }).join('') || '<div class="empty-state" style="padding:20px"><div>No communicators.</div></div>';
 
     const atkHtml = atks.map(a => {
         const attempts = a.attempts || 0, success = a.success || 0;
@@ -641,18 +661,20 @@ function renderRoster() {
                 </div>
             </div>
         `;
-    }).join('');
+    }).join('') || '<div class="empty-state" style="padding:20px"><div>No hackers.</div></div>';
 
-    document.getElementById('agent-roster').innerHTML = `
-        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">
-            <i class="fa-solid fa-comment-dots" style="color:var(--accent)"></i> Communicators
+    container.innerHTML = `
+        <div class="roster-tabs">
+            <button class="roster-tab ${rosterTab === 'communicators' ? 'active' : ''}" onclick="setRosterTab('communicators')">
+                <i class="fa-solid fa-comment-dots"></i> Communicators (${comms.length})
+            </button>
+            <button class="roster-tab ${rosterTab === 'hackers' ? 'active' : ''}" onclick="setRosterTab('hackers')">
+                <i class="fa-solid fa-skull-crossbones"></i> Hackers (${atks.length})
+            </button>
         </div>
-        ${commHtml}
-        <div style="height:8px"></div>
-        <div style="padding:8px 12px 4px;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">
-            <i class="fa-solid fa-skull-crossbones" style="color:var(--danger)"></i> Hackers
+        <div class="roster-tab-content">
+            ${rosterTab === 'communicators' ? commHtml : atkHtml}
         </div>
-        ${atkHtml}
     `;
 }
 
@@ -673,14 +695,28 @@ function updateAgentFilter() {
 // Log panel.
 // ---------------------------------------------------------------------------
 
+function truncate(s, n) {
+    if (!s) return '';
+    return s.length > n ? s.slice(0, n) + '\u2026' : s;
+}
+
 function renderLog() {
     const container = document.getElementById('log-entries');
     if (!container) return;
     let events = state.events.slice().reverse();
 
     const f = state.filters;
-    if (f.agent) events = events.filter(e =>
-        e.sender === f.agent || e.target === f.agent || e.attacker === f.agent);
+    if (f.agent) {
+        // FIX: for survival (secure) and intercepted events, the agent filter
+        // should match the SENDER only (not the recipient/attacker). For send
+        // events, match sender or target. For skip, match attacker.
+        events = events.filter(e => {
+            if (e.kind === 'send') return e.sender === f.agent || e.target === f.agent;
+            if (e.kind === 'intercepted' || e.kind === 'secure') return e.sender === f.agent;
+            if (e.kind === 'skip') return e.attacker === f.agent;
+            return false;
+        });
+    }
     if (f.cipher) events = events.filter(e => e.cipher === f.cipher);
     if (f.attack) events = events.filter(e => e.attack === f.attack);
     if (f.outcome === 'success') events = events.filter(e => e.kind === 'intercepted');
@@ -689,6 +725,7 @@ function renderLog() {
 
     events = events.slice(0, 80);
 
+    // FIX: update the log count badge.
     const countEl = document.getElementById('log-count');
     if (countEl) countEl.textContent = events.length;
 
@@ -705,19 +742,24 @@ function renderLog() {
         else if (ev.kind === 'secure') icon = 'fa-shield-halved';
         else if (ev.kind === 'skip') icon = 'fa-forward';
 
+        // FIX: truncate the message preview to prevent layout clipping.
+        const preview = truncate(ev.message_preview, 40);
+        // FIX: truncate the notes too.
+        const notes = truncate(ev.notes, 50);
+
         // Stagger the CSS animation per entry.
-        const delay = (idx * 50) + 'ms';
+        const delay = (idx * 60) + 'ms';
 
         return `
             <div class="${cls}" style="animation-delay:${delay}">
                 <span class="tick">T${ev.tick}</span>
                 <i class="fa-solid ${icon}" style="width:14px;color:var(--text-muted)"></i>
                 ${ev.kind === 'send'
-                    ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(ev.message_preview)}"</span></span>`
+                    ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(preview)}"</span></span>`
                     : ev.kind === 'intercepted'
-                    ? `<span><b>${ev.attacker}</b> cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} with ${ev.attack ? attackTag(ev.attack) : ''} <span class="text-muted">(${escapeHtml(ev.notes)})</span></span>`
+                    ? `<span><b>${ev.attacker}</b> cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} with ${ev.attack ? attackTag(ev.attack) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
                     : ev.kind === 'secure'
-                    ? `<span><b>${ev.attacker}</b> failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} ${ev.attack ? attackTag(ev.attack) : ''} <span class="text-muted">(${escapeHtml(ev.notes)})</span></span>`
+                    ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
                     : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''}</span>`}
             </div>
         `;
@@ -904,6 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resizeCanvas();
     requestAnimationFrame(render);
     connect();
+    setupNavigationPause();
 
     document.getElementById('btn-start').onclick = simStart;
     document.getElementById('btn-pause').onclick = simPause;
@@ -918,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Live-preview the slider values for tunable params; apply on change.
+    // Greediness + Caution: live-preview the value, apply on change (which pauses).
     document.getElementById('atk-temp').addEventListener('input', e => {
         document.getElementById('atk-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
     });
@@ -935,14 +978,14 @@ document.addEventListener('DOMContentLoaded', () => {
         await apiPost('/api/sim/tune', {communicator_temperature: parseFloat(e.target.value)});
         state.config.communicator_temperature = parseFloat(e.target.value);
     });
-    document.getElementById('tick-rate').addEventListener('input', e => {
-        document.getElementById('tick-rate-val').textContent = parseFloat(e.target.value).toFixed(1) + '/s';
-    });
-    document.getElementById('tick-rate').addEventListener('change', async e => {
-        await pauseOnChange();
-        const interval = 1.0 / parseFloat(e.target.value);
+
+    // Tick speed: Low / Medium / High — applies live, does NOT pause.
+    document.getElementById('tick-speed').addEventListener('change', async e => {
+        const interval = {low: 2.0, medium: 0.9, high: 0.3}[e.target.value];
         await apiPost('/api/sim/tune', {tick_interval: interval});
         state.config.tick_interval = interval;
+        const tierLabel = {low: 'Low', medium: 'Medium', high: 'High'}[e.target.value];
+        document.getElementById('tick-speed-val').textContent = tierLabel;
     });
 
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);

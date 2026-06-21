@@ -21,7 +21,7 @@
             <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> <span>Simulation</span></a>
             <a href="/playground"><i class="fa-solid fa-flask"></i> <span>Playground</span></a>
             <a href="/wiki"><i class="fa-solid fa-book"></i> <span>Wiki</span></a>
-            <span class="theme-slider" role="button" aria-label="Toggle theme">
+            <span class="theme-toggle" role="button" aria-label="Toggle theme">
                 <i class="fa-solid fa-sun ico sun"></i>
                 <i class="fa-solid fa-moon ico moon"></i>
             </span>
@@ -34,7 +34,6 @@
         <div class="eyebrow">Live simulation</div>
         <h1>The Simulation</h1>
         <p>Communicators send encrypted messages. Hackers try to break them. Click any agent to inspect their phone or attack log.</p>
-        <div style="margin-top:14px"><span id="ws-status" class="tag"><i class="fa-solid fa-circle" style="font-size:0.5rem"></i> connecting...</span></div>
     </div>
 </div>
 
@@ -66,10 +65,12 @@
     <div class="sim-layout mb-3">
         <div class="sim-canvas-wrap">
             <div class="sim-canvas-overlay">
-                <div class="legend"><span class="swatch" style="background:var(--c1)"></span> Communicator</div>
-                <div class="legend"><span class="swatch" style="background:var(--atk1)"></span> Hacker</div>
-                <div class="legend"><span class="swatch" style="background:var(--success)"></span> Survived</div>
-                <div class="legend"><span class="swatch" style="background:var(--danger)"></span> Intercepted</div>
+                <div class="legend"><span class="swatch" style="background:var(--c1)"></span> Communicator agent</div>
+                <div class="legend"><span class="swatch" style="background:var(--atk1)"></span> Hacker agent</div>
+                <div class="legend"><span style="display:inline-block;width:18px;border-top:2px solid var(--accent)"></span> Solid arrow = message sent</div>
+                <div class="legend"><span style="display:inline-block;width:18px;border-top:2px dashed var(--danger)"></span> Dashed line = attack attempt</div>
+                <div class="legend"><i class="fa-solid fa-xmark" style="color:var(--danger);width:12px"></i> Attack succeeded (cracked)</div>
+                <div class="legend"><i class="fa-solid fa-check" style="color:var(--success);width:12px"></i> Attack failed (survived)</div>
             </div>
             <canvas id="sim-canvas"></canvas>
         </div>
@@ -82,6 +83,10 @@
                         <button id="btn-pause" class="btn btn-outline btn-sm" style="display:none"><i class="fa-solid fa-pause"></i> Pause</button>
                     </div>
                     <button id="btn-reset" class="btn btn-danger btn-sm btn-block"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                    <div id="reset-hint" class="hint" style="background:var(--bg-panel-2);border-left:2px solid var(--border-strong);padding:6px 10px;border-radius:var(--radius-xs);margin-top:8px;font-size:0.72rem">
+                        <i class="fa-solid fa-circle-info" style="color:var(--text-dim)"></i>
+                        Communicators, Hackers, Greediness, Caution, and Seed need a Reset to apply.
+                    </div>
                 </div>
 
                 <div class="control-group">
@@ -111,10 +116,6 @@
                         <input type="number" id="seed" placeholder="42" min="1" max="999999">
                         <div class="hint">empty = random each run</div>
                     </div>
-                    <div id="reset-hint" class="hint" style="display:none;background:var(--warning-soft);border-left:3px solid var(--warning);padding:8px 12px;border-radius:var(--radius-xs);margin-top:8px">
-                        <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i>
-                        Hit <b>Reset</b> to apply these changes — they can't be modified mid-run.
-                    </div>
                 </div>
 
                 <div class="control-group">
@@ -125,7 +126,7 @@
                             <span class="value" id="atk-temp-val">1.00</span>
                         </div>
                         <input type="range" id="atk-temp" min="0.1" max="2.0" step="0.05" value="1.0">
-                        <div class="hint">low = stick to what works, high = explore more (pauses sim on change)</div>
+                        <div class="hint">low = stick to what works, high = explore more</div>
                     </div>
                     <div class="slider-row">
                         <div class="label-row">
@@ -134,16 +135,20 @@
                             <span class="value" id="comm-temp-val">1.20</span>
                         </div>
                         <input type="range" id="comm-temp" min="0.1" max="2.0" step="0.05" value="1.2">
-                        <div class="hint">low = stick to the safest, high = experiment (pauses sim on change)</div>
+                        <div class="hint">low = stick to the safest, high = experiment</div>
                     </div>
                     <div class="slider-row">
                         <div class="label-row">
                             Tick Speed
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many simulation steps happen per second. Higher = faster.</span></span>
-                            <span class="value" id="tick-rate-val">1.1/s</span>
+                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How fast the simulation runs. Low = slow and easy to follow. High = as fast as the backend can keep up.</span></span>
+                            <span class="value" id="tick-speed-val">Medium</span>
                         </div>
-                        <input type="range" id="tick-rate" min="0.3" max="5.0" step="0.1" value="1.1">
-                        <div class="hint">ticks per second (pauses sim on change)</div>
+                        <select id="tick-speed">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                        <div class="hint">live — no pause needed</div>
                     </div>
                 </div>
             </div>

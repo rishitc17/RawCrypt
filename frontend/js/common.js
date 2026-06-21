@@ -32,7 +32,7 @@ function currentThemeIsDark() {
 
 function applyThemeVisuals() {
     const isDark = currentThemeIsDark();
-    document.querySelectorAll('.theme-slider').forEach(el => {
+    document.querySelectorAll('.theme-toggle').forEach(el => {
         el.setAttribute('data-theme', isDark ? 'dark' : 'light');
     });
 }
@@ -49,7 +49,7 @@ function toggleTheme() {
 
 document.addEventListener('DOMContentLoaded', () => {
     applyThemeVisuals();
-    document.querySelectorAll('.theme-slider').forEach(el => {
+    document.querySelectorAll('.theme-toggle').forEach(el => {
         el.addEventListener('click', toggleTheme);
     });
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
