@@ -129,10 +129,12 @@ MESSAGE_CORPUS = [
 @dataclass
 class Communicator:
     name: str
+    temperature: float = 1.2
     strategy: Strategy = field(init=False)
 
     def __post_init__(self):
-        self.strategy = Strategy(list(CIPHER_REGISTRY.keys()), temperature=1.2)
+        self.strategy = Strategy(list(CIPHER_REGISTRY.keys()),
+                                 temperature=self.temperature)
 
     def pick_cipher(self, security_level: int) -> tuple[str, Any]:
         """Pick a cipher for a message with the given security level (1..5).
@@ -216,13 +218,15 @@ class Communicator:
 @dataclass
 class Attacker:
     name: str
+    temperature: float = 1.0
     strategy: Strategy = field(init=False)
     # Per-(cipher, attack) empirical success rate.
     pairwise_empirical: dict[tuple[str, str], dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int)))
 
     def __post_init__(self):
-        self.strategy = Strategy(list(ATTACK_REGISTRY.keys()), temperature=1.0)
+        self.strategy = Strategy(list(ATTACK_REGISTRY.keys()),
+                                 temperature=self.temperature)
 
     def pick_attack(self, cipher_name: str) -> tuple[str, Any]:
         """Pick an attack to use against a given cipher.

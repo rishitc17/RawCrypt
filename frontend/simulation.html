@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation — RawCrypt</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="navbar-inner">
+        <a href="/" class="brand">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>RawCrypt</span>
+        </a>
+        <div class="nav-links">
+            <a href="/"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/simulation"><i class="fa-solid fa-tower-broadcast"></i> Simulation</a>
+            <a href="/playground"><i class="fa-solid fa-flask"></i> Playground</a>
+            <a href="/wiki"><i class="fa-solid fa-book"></i> Wiki</a>
+            <button class="theme-toggle" aria-label="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+</nav>
+
+<div class="page-header">
+    <h1>Live Multi-Agent Simulation</h1>
+    <p>Communicators send encrypted messages. Attackers try to break them. Click any agent to inspect their phone.</p>
+    <div class="mt-2"><span id="ws-status" class="badge badge-warning"><i class="fa-solid fa-circle" style="font-size:0.5rem"></i> connecting...</span></div>
+</div>
+
+<div class="container">
+
+    <!-- Summary stats -->
+    <div class="stats-grid">
+        <div class="stats-panel">
+            <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent)"></i> Tick</h3>
+            <div style="font-size:1.8rem;font-weight:700" id="stat-tick">0</div>
+        </div>
+        <div class="stats-panel">
+            <h3><i class="fa-solid fa-envelope" style="color:var(--accent)"></i> Messages sent</h3>
+            <div style="font-size:1.8rem;font-weight:700" id="stat-messages">0</div>
+        </div>
+        <div class="stats-panel">
+            <h3><i class="fa-solid fa-shield-halved" style="color:var(--success)"></i> Survival rate</h3>
+            <div style="font-size:1.8rem;font-weight:700;color:var(--success)" id="stat-survival">—</div>
+        </div>
+        <div class="stats-panel">
+            <h3><i class="fa-solid fa-shuffle" style="color:var(--accent)"></i> Distinct ciphers</h3>
+            <div style="font-size:1.8rem;font-weight:700" id="stat-ciphers">0</div>
+        </div>
+    </div>
+
+    <!-- Canvas + controls -->
+    <div class="sim-layout">
+        <div class="sim-canvas-wrap">
+            <canvas id="sim-canvas"></canvas>
+        </div>
+        <div class="sim-controls">
+            <h3><i class="fa-solid fa-sliders" style="color:var(--accent)"></i> Controls</h3>
+
+            <div class="control-group">
+                <div class="btn-row">
+                    <button id="btn-start" class="btn btn-success btn-sm"><i class="fa-solid fa-play"></i> Start</button>
+                    <button id="btn-pause" class="btn btn-secondary btn-sm" style="display:none"><i class="fa-solid fa-pause"></i> Pause</button>
+                </div>
+                <button id="btn-reset" class="btn btn-danger btn-sm" style="width:100%"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+            </div>
+
+            <div class="control-group">
+                <div class="slider-row">
+                    <div class="label-row">
+                        Communicators
+                        <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be sending messages. More agents = more traffic = more attacks.</span></span>
+                        <span class="value" id="num-comms-val">4</span>
+                    </div>
+                    <input type="range" id="num-comms" min="2" max="10" step="1" value="4">
+                    <div class="hint">2-10 (hit Reset to apply)</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="label-row">
+                        Attackers
+                        <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be trying to break messages. More attackers = lower survival rate.</span></span>
+                        <span class="value" id="num-atks-val">2</span>
+                    </div>
+                    <input type="range" id="num-atks" min="1" max="5" step="1" value="2">
+                    <div class="hint">1-5 (hit Reset to apply)</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="label-row">
+                        Random seed
+                        <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">Same seed = same simulation. Useful for reproducing interesting runs.</span></span>
+                    </div>
+                    <input type="number" id="seed" placeholder="42" min="1" max="999999">
+                    <div class="hint">Empty = random each run</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div style="font-weight:600;margin-bottom:10px;font-size:0.9rem">
+                    <i class="fa-solid fa-bolt" style="color:var(--accent)"></i> Live tunable (no reset needed)
+                </div>
+
+                <div class="slider-row">
+                    <div class="label-row">
+                        Attacker temperature
+                        <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">Lower = attackers stick to what works (more exploit). Higher = attackers try more varied attacks (more explore).</span></span>
+                        <span class="value" id="atk-temp-val">1.00</span>
+                    </div>
+                    <input type="range" id="atk-temp" min="0.1" max="2.0" step="0.05" value="1.0">
+                    <div class="hint">softmax temperature — 0.1 = greedy, 2.0 = very random</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="label-row">
+                        Communicator temperature
+                        <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">Lower = communicators stick to safe ciphers. Higher = communicators experiment more.</span></span>
+                        <span class="value" id="comm-temp-val">1.20</span>
+                    </div>
+                    <input type="range" id="comm-temp" min="0.1" max="2.0" step="0.05" value="1.2">
+                    <div class="hint">softmax temperature for cipher selection</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="label-row">
+                        Tick speed
+                        <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">Seconds between simulation ticks. Lower = faster.</span></span>
+                        <span class="value" id="tick-interval-val">0.90s</span>
+                    </div>
+                    <input type="range" id="tick-interval" min="0.2" max="3.0" step="0.1" value="0.9">
+                    <div class="hint">seconds per tick</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent roster -->
+    <h3 class="mt-4"><i class="fa-solid fa-users" style="color:var(--accent)"></i> Agents (click to inspect)</h3>
+    <div class="card" style="padding:8px">
+        <div id="agent-roster">
+            <div class="empty-state"><i class="fa-solid fa-spinner spinner"></i><div>Connecting to simulation...</div></div>
+        </div>
+    </div>
+
+    <!-- Stats tables -->
+    <div class="grid-2 mt-4">
+        <div class="stats-panel">
+            <h3><i class="fa-solid fa-shuffle" style="color:var(--accent)"></i> Cipher usage</h3>
+            <table id="cipher-usage-table">
+                <thead><tr><th>cipher</th><th>used</th><th>%</th><th>broken</th><th>break %</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="stats-panel">
+            <h3><i class="fa-solid fa-skull-crossbones" style="color:var(--danger)"></i> Attack usage</h3>
+            <table id="attack-usage-table">
+                <thead><tr><th>attack</th><th>used</th><th>%</th><th>success</th><th>succ %</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="log-panel mt-4" id="log-panel">
+        <div class="log-header" id="log-header">
+            <div class="title"><i class="fa-solid fa-list"></i> Activity log <span class="badge" id="log-count">0</span></div>
+            <i class="fa-solid fa-chevron-down chevron"></i>
+        </div>
+        <div class="log-body">
+            <div class="log-filters">
+                <label>agent
+                    <select id="filter-agent">
+                        <option value="">any</option>
+                    </select>
+                </label>
+                <label>cipher
+                    <select id="filter-cipher">
+                        <option value="">any</option>
+                        <option value="shift">shift</option>
+                        <option value="rail_fence">rail_fence</option>
+                        <option value="permutation">permutation</option>
+                        <option value="vigenere">vigenere</option>
+                        <option value="substitution">substitution</option>
+                        <option value="stream">stream</option>
+                        <option value="feistel">feistel</option>
+                        <option value="aes">aes</option>
+                        <option value="rsa">rsa</option>
+                    </select>
+                </label>
+                <label>attack
+                    <select id="filter-attack">
+                        <option value="">any</option>
+                        <option value="brute_force">brute_force</option>
+                        <option value="frequency">frequency</option>
+                        <option value="known_plaintext">known_plaintext</option>
+                        <option value="dictionary">dictionary</option>
+                    </select>
+                </label>
+                <label>outcome
+                    <select id="filter-outcome">
+                        <option value="all">all</option>
+                        <option value="send">sends only</option>
+                        <option value="success">breaks only</option>
+                        <option value="failed">survivals only</option>
+                    </select>
+                </label>
+            </div>
+            <div class="log-entries" id="log-entries">
+                <div class="empty-state"><i class="fa-solid fa-inbox"></i><div>Waiting for events...</div></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Phone modal (for communicators) -->
+<div class="modal-overlay" id="phone-modal">
+    <div class="phone">
+        <div class="phone-header">
+            <button class="back-btn" id="phone-back"><i class="fa-solid fa-arrow-left"></i></button>
+            <div class="avatar"></div>
+            <div>
+                <div class="name"></div>
+                <div class="status"></div>
+            </div>
+        </div>
+        <div class="phone-body"></div>
+    </div>
+</div>
+
+<!-- Attacker modal -->
+<div class="modal-overlay" id="attacker-modal">
+    <div class="modal modal-large">
+        <div class="modal-header">
+            <div class="modal-title"></div>
+            <button class="modal-close" id="attacker-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body"></div>
+    </div>
+</div>
+
+<footer style="margin-top:60px">
+    <div class="brand">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>RawCrypt</span>
+    </div>
+    <p>Watch. Learn. Encrypt.</p>
+</footer>
+
+<script src="/js/common.js"></script>
+<script src="/js/sim.js"></script>
+</body>
+</html>

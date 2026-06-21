@@ -98,22 +98,32 @@ class Simulation:
         num_communicators: int = 4,
         num_attackers: int = 2,
         event_history: int = 200,
+        attacker_temperature: float = 1.0,
+        communicator_temperature: float = 1.2,
         seed: Optional[int] = None,
     ):
         if seed is not None:
             random.seed(seed)
 
         self.tick: int = 0
+        self.attacker_temperature = attacker_temperature
+        self.communicator_temperature = communicator_temperature
         self.communicators: list[Communicator] = [
-            Communicator(name=self._comm_name(i))
+            Communicator(name=self._comm_name(i),
+                         temperature=communicator_temperature)
             for i in range(num_communicators)
         ]
         self.attackers: list[Attacker] = [
-            Attacker(name=self._atk_name(i))
+            Attacker(name=self._atk_name(i),
+                     temperature=attacker_temperature)
             for i in range(num_attackers)
         ]
         self.events: deque[Event] = deque(maxlen=event_history)
         self.channel: list[CapturedMessage] = []
+        # Persistent log of every message ever sent, keyed by
+        # (tick, sender, target). Used to power the WhatsApp-style phone
+        # UI and the attacker observation panel.
+        self._message_log: dict[tuple, dict] = {}
 
         # Aggregate statistics.
         self.cipher_usage: dict[str, int] = defaultdict(int)
@@ -127,12 +137,13 @@ class Simulation:
 
     @staticmethod
     def _comm_name(i: int) -> str:
-        names = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace"]
+        names = ["Alice", "Bob", "Carol", "Dave", "Erin",
+                 "Frank", "Grace", "Heidi", "Ivan", "Judy"]
         return names[i % len(names)] + (f"-{i // len(names)}" if i >= len(names) else "")
 
     @staticmethod
     def _atk_name(i: int) -> str:
-        names = ["Mallory", "Trudy", "Oscar", "Lee"]
+        names = ["Mallory", "Trudy", "Oscar", "Lee", "Marvin"]
         return names[i % len(names)] + (f"-{i // len(names)}" if i >= len(names) else "")
 
     # -----------------------------------------------------------------
@@ -174,6 +185,16 @@ class Simulation:
                 security_level=security_level,
             )
             self.channel.append(captured)
+
+            # Persist for the phone UI.
+            self._message_log[(self.tick, comm.name,
+                               target.name if target else "?")] = {
+                "plaintext": message,
+                "ciphertext": ciphertext_hex,
+                "cipher": cipher_name,
+                "key": key,
+                "security_level": security_level,
+            }
 
             self.cipher_usage[cipher_name] += 1
             self.communicator_sent[comm.name] += 1
@@ -365,3 +386,136 @@ class Simulation:
             top = a.strategy.top_actions(k=4)
             rows.append((a.name, "attacker", top))
         return rows
+
+    # -----------------------------------------------------------------
+    # Live tunable parameters (no reset required).
+    # -----------------------------------------------------------------
+
+    def set_attacker_temperature(self, temp: float):
+        """Live-update the softmax temperature of every attacker.
+
+        Lower temperature = more exploitative (attackers stick to the
+        best-performing attack); higher temperature = more explorative
+        (attackers try a wider variety of attacks).
+        """
+        self.attacker_temperature = float(temp)
+        for atk in self.attackers:
+            atk.strategy.temperature = float(temp)
+
+    def set_communicator_temperature(self, temp: float):
+        self.communicator_temperature = float(temp)
+        for comm in self.communicators:
+            comm.strategy.temperature = float(temp)
+
+    def set_tick_interval(self, seconds: float):
+        """Set the simulation tick interval (used by the API layer)."""
+        self.tick_interval = float(seconds)
+
+    # -----------------------------------------------------------------
+    # Per-agent chat history (for the WhatsApp-like phone UI).
+    # -----------------------------------------------------------------
+
+    def communicator_chat_history(self, agent_name: str) -> dict:
+        """Return a WhatsApp-style chat history for the named communicator.
+
+        Structure:
+            {
+                "agent": "Alice",
+                "contacts": {
+                    "Bob": [
+                        {"tick": 5, "direction": "out", "cipher": "aes",
+                         "plaintext": "...", "ciphertext": "...",
+                         "intercepted_by": "Mallory", "broken": True},
+                        {"tick": 7, "direction": "in", "cipher": "stream",
+                         "plaintext": "...", "ciphertext": "...",
+                         "intercepted_by": null, "broken": False},
+                        ...
+                    ],
+                    ...
+                }
+            }
+        """
+        history: dict[str, list[dict]] = {}
+        # Iterate over all events; for each "send" event involving this
+        # agent (as sender or receiver), record the message; for each
+        # "intercepted" / "secure" event involving the message, attach
+        # the attack outcome.
+        # We track messages by (tick, sender, target) so we can attach
+        # later attack outcomes.
+        messages_by_key: dict[tuple, dict] = {}
+
+        for ev in self.events:
+            if ev.kind == "send":
+                if ev.sender != agent_name and ev.target != agent_name:
+                    continue
+                other = ev.target if ev.sender == agent_name else ev.sender
+                direction = "out" if ev.sender == agent_name else "in"
+                # We need the actual message content; reconstruct from
+                # the channel — but the channel is cleared each tick.
+                # Instead we look it up in the persistent log we keep
+                # in `_message_log`.
+                msg = self._message_log.get((ev.tick, ev.sender, ev.target))
+                if msg is None:
+                    continue
+                entry = {
+                    "tick": ev.tick,
+                    "direction": direction,
+                    "cipher": ev.cipher,
+                    "plaintext": msg["plaintext"],
+                    "ciphertext": msg["ciphertext"],
+                    "security_level": ev.security_level,
+                    "intercepted_by": None,
+                    "broken": False,
+                    "attack": None,
+                    "attack_notes": None,
+                }
+                history.setdefault(other, []).append(entry)
+                messages_by_key[(ev.tick, ev.sender, ev.target)] = entry
+            elif ev.kind in ("intercepted", "secure"):
+                # Attach to the matching send event.
+                key = (ev.tick, ev.sender, ev.target)
+                entry = messages_by_key.get(key)
+                if entry is None:
+                    continue
+                entry["intercepted_by"] = ev.attacker
+                entry["broken"] = (ev.kind == "intercepted")
+                entry["attack"] = ev.attack
+                entry["attack_notes"] = ev.notes
+
+        return {"agent": agent_name, "contacts": history}
+
+    def attacker_observation_log(self, agent_name: str) -> dict:
+        """Return the messages an attacker has observed / attacked.
+
+        Structure:
+            {
+                "agent": "Mallory",
+                "attempts": [
+                    {"tick": 5, "sender": "Alice", "target": "Bob",
+                     "cipher": "aes", "attack": "brute_force",
+                     "success": True, "ciphertext": "...", "plaintext": "...",
+                     "notes": "..."},
+                    ...
+                ]
+            }
+        """
+        attempts = []
+        for ev in self.events:
+            if ev.attacker != agent_name:
+                continue
+            if ev.kind not in ("intercepted", "secure", "skip"):
+                continue
+            msg = self._message_log.get((ev.tick, ev.sender, ev.target), {})
+            attempts.append({
+                "tick": ev.tick,
+                "sender": ev.sender,
+                "target": ev.target,
+                "cipher": ev.cipher,
+                "attack": ev.attack,
+                "success": ev.kind == "intercepted",
+                "skipped": ev.kind == "skip",
+                "ciphertext": msg.get("ciphertext", ""),
+                "plaintext": msg.get("plaintext", "") if ev.kind == "intercepted" else "",
+                "notes": ev.notes,
+            })
+        return {"agent": agent_name, "attempts": attempts}
