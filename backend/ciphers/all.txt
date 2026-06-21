@@ -4,6 +4,6 @@
 - Rail Fence - DONE
 - Permutation - DONE
 - Stream w/ LFSR + XOR - DONE
-- Toy Feistel
-- Toy AES
-- Toy RSA
+- Toy Feistel - DONE
+- Toy AES - DONE
+- Toy RSA - DONE
