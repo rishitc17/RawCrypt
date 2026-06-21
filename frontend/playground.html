@@ -6,7 +6,7 @@
     <title>Playground — RawCrypt</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -31,7 +31,7 @@
 
 <div class="page-header">
     <div class="container">
-        <div class="section-marker">DOSSIER &middot; HANDS-ON</div>
+        <div class="eyebrow">Hands-on</div>
         <h1>The Playground</h1>
         <p>Pick a cipher, enter a message and key, and watch encryption happen. Try decrypting — see if you can recover the original.</p>
     </div>
@@ -50,17 +50,17 @@
                 <div id="cipher-badges"></div>
             </div>
             <p class="description" id="cipher-description"></p>
-            <a id="cipher-wiki-link" href="#" class="btn btn-ghost btn-sm" style="padding:4px 0;color:var(--accent);margin-bottom:20px">
+            <a id="cipher-wiki-link" href="#" class="btn btn-ghost btn-sm" style="padding:4px 0;color:var(--accent);margin-bottom:20px;display:inline-flex">
                 <i class="fa-solid fa-book"></i> Read the wiki page for this cipher
             </a>
 
             <div class="field" id="key-container"></div>
 
-            <hr style="border:none;border-top:1px dashed var(--border);margin:24px 0">
+            <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
 
             <div class="grid-2">
                 <div>
-                    <h3 style="font-family:var(--font-mono);font-size:0.9rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-top:0">
+                    <h3 style="font-family:var(--font-mono);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-top:0">
                         <i class="fa-solid fa-lock" style="color:var(--accent)"></i> Encrypt
                     </h3>
                     <div class="field">
@@ -71,7 +71,7 @@
                     <div id="encrypt-output"></div>
                 </div>
                 <div>
-                    <h3 style="font-family:var(--font-mono);font-size:0.9rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-top:0">
+                    <h3 style="font-family:var(--font-mono);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-top:0">
                         <i class="fa-solid fa-unlock" style="color:var(--success)"></i> Decrypt
                     </h3>
                     <div class="field">
@@ -83,10 +83,10 @@
                 </div>
             </div>
 
-            <hr style="border:none;border-top:1px dashed var(--border);margin:24px 0">
+            <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
 
-            <div class="panel" style="padding:18px;background:var(--bg-panel-2);border-left:3px solid var(--accent)">
-                <h3 style="margin-top:0;font-family:var(--font-mono);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent)">
+            <div class="panel" style="padding:18px;background:var(--bg-panel-2)">
+                <h3 style="margin-top:0;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent)">
                     <i class="fa-solid fa-lightbulb"></i> Try this
                 </h3>
                 <ol style="margin:0;padding-left:20px;line-height:1.8;font-size:0.92rem">
@@ -105,7 +105,8 @@
 
 <footer style="margin-top:60px">
     <div class="container">
-        <div class="annotation">FIELD MANUAL &middot; HANDS-ON MODE</div>
+        <div class="brand-mark"><span class="glyph">R</span><span class="word">Raw<b>Crypt</b></span></div>
+        <div style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-dim)">Hands-on mode</div>
     </div>
 </footer>
 
