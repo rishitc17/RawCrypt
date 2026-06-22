@@ -4,7 +4,7 @@
 
 const CAROUSEL_CARDS = [
     // Ciphers
-    {slug:'shift', name:'Shift', type:'Cipher', icon:'fa-i-cursor', color:'#10B981', cost:1, security:1, desc:'Caesar\\'s classic. Each byte nudged forward by a fixed amount.'},
+    {slug:'shift', name:'Shift', type:'Cipher', icon:'fa-i-cursor', color:'#10B981', cost:1, security:1, desc:"Caesar's classic. Each byte nudged forward by a fixed amount."},
     {slug:'rail_fence', name:'Rail Fence', type:'Cipher', icon:'fa-bars-staggered', color:'#65A30D', cost:1, security:2, desc:'A zig-zag transposition. Cheap but predictable.'},
     {slug:'permutation', name:'Permutation', type:'Cipher', icon:'fa-shuffle', color:'#4F46E5', cost:2, security:3, desc:'8 bytes get shuffled. 40,320 possible shuffles.'},
     {slug:'vigenere', name:'Vigenère', type:'Cipher', icon:'fa-table-cells', color:'#EC4899', cost:2, security:3, desc:'A repeating-key cipher that fooled Europe for 300 years.'},
