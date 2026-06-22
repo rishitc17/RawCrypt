@@ -216,7 +216,7 @@ body {
 }
 .rpg-card.rpg-card-attack:hover {
     border-style: dashed;
-    border-color: var(--accent);
+    border-color: #DC2626;  /* red hover for attack cards */
 }
 .rpg-card-banner {
     height: 80px;

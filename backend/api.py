@@ -83,7 +83,9 @@ class SimManager:
         await self.broadcast(self._snapshot())
 
     async def _loop(self):
+        import time as _time
         while self.running:
+            t0 = _time.monotonic()
             events = await asyncio.to_thread(self.sim.step)
             await self.broadcast({
                 "type": "tick",
@@ -91,7 +93,13 @@ class SimManager:
                 "events": [_event_to_dict(e) for e in events],
                 "stats": self._stats(),
             })
-            await asyncio.sleep(self.tick_interval)
+            # Subtract the time spent computing + broadcasting from the
+            # sleep, so the total interval between ticks is consistent.
+            # If computation took longer than the interval, don't sleep
+            # at all (but yield once to let other coroutines run).
+            elapsed = _time.monotonic() - t0
+            sleep_time = max(0, self.tick_interval - elapsed)
+            await asyncio.sleep(sleep_time)
 
     def _stats(self) -> dict:
         s = self.sim
