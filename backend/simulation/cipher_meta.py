@@ -209,9 +209,9 @@ def _substitution_encrypt(pt: str, key: dict) -> str:
 
 
 def _substitution_decrypt(ct: str, key: dict) -> str:
-    # Build inverse map on the fly.
-    inverse = {v: k for k, v in key.items()}
-    return _subst_mod.Substitution().decrypt(ct, inverse)
+    # Substitution.decrypt already builds the inverse map internally,
+    # so we pass the original forward map directly.
+    return _subst_mod.Substitution().decrypt(ct, key)
 
 
 def _stream_encrypt(pt: str, key: tuple) -> str:

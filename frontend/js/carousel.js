@@ -21,7 +21,8 @@ const CAROUSEL_CARDS = [
 ];
 
 function buildCarouselCard(card) {
-    const wikiSlug = card.type === 'Cipher' ? card.slug : card.slug;
+    const wikiSlug = card.slug;
+    const attackClass = card.type === 'Attack' ? ' rpg-card-attack' : '';
     const statsHtml = card.type === 'Cipher'
         ? `<div class="rpg-card-stats">
              <div class="rpg-stat"><div class="rpg-stat-label">Cost</div><div class="rpg-stat-value" style="color:${card.color}">${card.cost}</div></div>
@@ -31,7 +32,7 @@ function buildCarouselCard(card) {
              <div class="rpg-stat"><div class="rpg-stat-label">Cost</div><div class="rpg-stat-value" style="color:${card.color}">${card.cost}</div></div>
            </div>`;
     return `
-        <a href="/wiki#${wikiSlug}" class="rpg-card">
+        <a href="/wiki#${wikiSlug}" class="rpg-card${attackClass}">
             <div class="rpg-card-banner" style="background:${card.color}">
                 <i class="fa-solid ${card.icon}"></i>
             </div>

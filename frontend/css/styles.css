@@ -199,7 +199,7 @@ body {
     border-radius: var(--radius);
     padding: 0;
     box-shadow: var(--shadow-sm);
-    transition: all 200ms;
+    transition: border-color 200ms, box-shadow 200ms;
     overflow: hidden;
     text-decoration: none;
     color: inherit;
@@ -207,9 +207,16 @@ body {
     flex-direction: column;
 }
 .rpg-card:hover {
-    transform: translateY(-4px);
     border-color: var(--accent);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
+}
+/* Attack cards get a dashed border to visually distinguish them from ciphers */
+.rpg-card.rpg-card-attack {
+    border-style: dashed;
+}
+.rpg-card.rpg-card-attack:hover {
+    border-style: dashed;
+    border-color: var(--accent);
 }
 .rpg-card-banner {
     height: 80px;
