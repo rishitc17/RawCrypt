@@ -222,6 +222,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="RawCrypt API", lifespan=lifespan)
 
 
+@app.get("/.well-known/appspecific/com.chrome.devtools.json")
+async def chrome_devtools_wellknown():
+    """Return a 404 silently for Chrome DevTools probe (harmless)."""
+    return JSONResponse({"error": "not found"}, status_code=404)
+
+
 # --- Static frontend ------------------------------------------------------
 # Mount /css, /js, /assets as static dirs; serve HTML pages via explicit
 # routes so we don't need extension-based routing on the root.

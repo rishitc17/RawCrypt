@@ -32,22 +32,39 @@ function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const wrap = canvas.parentElement;
     const rect = wrap.getBoundingClientRect();
-    canvas.width = Math.max(100, rect.width) * dpr;
-    canvas.height = Math.max(100, rect.height) * dpr;
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
+    const w = Math.max(100, rect.width);
+    const h = Math.max(100, rect.height);
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    layoutAgents();
+    // Re-layout agents with the NEW dimensions (don't rely on
+    // canvas.offsetWidth which may not have updated yet).
+    layoutAgents(w, h);
 }
-window.addEventListener('resize', () => { setTimeout(resizeCanvas, 50); });
+
+// Debounce resize: wait for the browser to settle (DevTools toggles
+// fire many rapid resize events). Use rAF to ensure layout has
+// completed before we re-measure.
+let resizeRaf = null;
+window.addEventListener('resize', () => {
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
+        // Double-rAF: first rAF measures, second rAF ensures the
+        // browser has applied the new layout.
+        requestAnimationFrame(resizeCanvas);
+    });
+});
 
 // ---------------------------------------------------------------------------
 // Agent layout.
 // ---------------------------------------------------------------------------
 
-function layoutAgents() {
-    const w = canvas.offsetWidth || 600;
-    const h = canvas.offsetHeight || 600;
+function layoutAgents(explicitW, explicitH) {
+    const w = explicitW || canvas.offsetWidth || 600;
+    const h = explicitH || canvas.offsetHeight || 600;
     const cx = w / 2, cy = h / 2;
     const comms = state.agents.filter(a => a.role === 'communicator');
     const atks = state.agents.filter(a => a.role === 'attacker');
