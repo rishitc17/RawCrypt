@@ -17,6 +17,7 @@ const state = {
     pendingAnimations: [],
     filters: { agent: '', cipher: '', attack: '', outcome: 'all' },
     openModal: null,
+    simStarted: false,  // true once Start is clicked; false again on Reset
 };
 
 // ---------------------------------------------------------------------------
@@ -506,6 +507,7 @@ async function simStart() {
     }
     await apiPost('/api/sim/start', {});
     state.running = true;
+    state.simStarted = true;
     updateControlUI();
 }
 
@@ -531,8 +533,11 @@ async function simReset() {
     await apiPost('/api/sim/reset', cfg);
     state.config = {...state.config, ...cfg};
     state.events = [];
+    state.revealedEvents = [];
+    state.pendingLogEntries = [];
     state.animations = [];
     state.pendingAnimations = [];
+    state.simStarted = false;
     renderRoster();
     renderLog();
     updateStatsPanels();
@@ -567,8 +572,8 @@ function updateControlUI() {
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
 
     // Disable ALL control panel inputs (except Start/Pause/Reset buttons)
-    // once the sim has started (tick > 0). They are only re-enabled on Reset.
-    const lockAll = (state.stats && state.stats.tick > 0);
+    // once the sim has been started. They are only re-enabled on Reset.
+    const lockAll = state.simStarted;
     ['num-comms', 'num-atks', 'seed', 'atk-temp', 'comm-temp'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
