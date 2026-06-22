@@ -53,6 +53,16 @@ function applyThemeVisuals() {
                 grad2.setAttribute('stop-color', '#c25a1a');
             }
         }
+        // Swap the keyhole colour: white in light mode, #1A1815 in dark mode.
+        const circle = svg.querySelector('circle');
+        const rect = svg.querySelector('rect');
+        const keyColor = isDark ? '#1A1815' : '#fff';
+        if (circle) {
+            circle.setAttribute('stroke', keyColor);
+        }
+        if (rect) {
+            rect.setAttribute('fill', keyColor);
+        }
     });
 }
 

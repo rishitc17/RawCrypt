@@ -197,6 +197,10 @@ function render() {
 
 function drawAgent(a, now, radius) {
     const r = radius || 26;
+    // On small canvases, hide labels entirely to prevent overlap.
+    const canvasW = canvas.offsetWidth || 600;
+    const showLabels = canvasW >= 500 && r >= 14;
+    const showRole = canvasW >= 500 && r >= 18;
     const pulse = state.animations.some(anim =>
         (anim.fromName === a.name || anim.toName === a.name) &&
         (now - anim.startTime) < 500 && (now - anim.startTime) > 0
@@ -237,15 +241,16 @@ function drawAgent(a, now, radius) {
     ctx.textBaseline = 'middle';
     ctx.fillText(initials(a.name), a.x, a.y);
 
-    // Only draw name labels if the circles are big enough.
-    if (r >= 14) {
+    // Only draw name labels if the circles are big enough AND the canvas
+    // is wide enough (prevents overlap on small/responsive screens).
+    if (showLabels) {
         ctx.fillStyle = cssVar('--text');
         ctx.font = `600 ${Math.max(8, r * 0.42)}px "IBM Plex Mono", monospace`;
         ctx.fillText(a.name, a.x, a.y + r + 14);
     }
 
-    // Only draw role labels if circles are big enough.
-    if (r >= 18) {
+    // Only draw role labels if circles are big enough AND canvas is wide.
+    if (showRole) {
         ctx.font = `${Math.max(7, r * 0.32)}px "IBM Plex Mono", monospace`;
         ctx.fillStyle = a.role === 'attacker' ? cssVar('--danger') : cssVar('--text-muted');
         ctx.fillText(a.role === 'attacker' ? '▲ HACKER' : '◆ COMM', a.x, a.y - r - 8);
@@ -561,14 +566,15 @@ function updateControlUI() {
     document.getElementById('atk-temp-val').textContent = state.config.attacker_temperature.toFixed(2);
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
 
-    // Lock all reset-required sliders when tick > 0.
-    const lockResetSliders = (state.stats && state.stats.tick > 0);
+    // Disable ALL control panel inputs (except Start/Pause/Reset buttons)
+    // once the sim has started (tick > 0). They are only re-enabled on Reset.
+    const lockAll = (state.stats && state.stats.tick > 0);
     ['num-comms', 'num-atks', 'seed', 'atk-temp', 'comm-temp'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.disabled = lockResetSliders;
-            el.style.opacity = lockResetSliders ? '0.5' : '1';
-            el.style.cursor = lockResetSliders ? 'not-allowed' : '';
+            el.disabled = lockAll;
+            el.style.opacity = lockAll ? '0.5' : '1';
+            el.style.cursor = lockAll ? 'not-allowed' : '';
         }
     });
 }
