@@ -32,7 +32,7 @@ function currentThemeIsDark() {
 
 function applyThemeVisuals() {
     const isDark = currentThemeIsDark();
-    document.querySelectorAll('.theme-switch__checkbox').forEach(el => {
+    document.querySelectorAll('.switch .input').forEach(el => {
         el.checked = isDark;
     });
 }
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyThemeVisuals();
     // Wire up the UIVerse theme toggle — clicking the label toggles the
     // checkbox, and we sync the theme to the checkbox state.
-    document.querySelectorAll('.theme-switch').forEach(el => {
+    document.querySelectorAll('.switch').forEach(el => {
         el.addEventListener('click', (e) => {
             e.preventDefault();
             toggleTheme();
