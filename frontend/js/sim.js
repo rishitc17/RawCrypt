@@ -51,19 +51,34 @@ function layoutAgents() {
     const cx = w / 2, cy = h / 2;
     const comms = state.agents.filter(a => a.role === 'communicator');
     const atks = state.agents.filter(a => a.role === 'attacker');
+    const totalAgents = comms.length + atks.length;
 
-    const outerR = Math.min(w, h) * 0.38;
+    // Scale the radius and agent size based on the number of agents.
+    // With few agents, use large circles on a big radius. With many
+    // agents (75+25=100), shrink everything to fit.
+    const baseR = Math.min(w, h) * 0.42;
+    const innerBaseR = Math.min(w, h) * 0.14;
+    // Shrink the outer ring as agent count grows.
+    const scale = totalAgents > 20 ? Math.max(0.5, 1 - (totalAgents - 20) * 0.01) : 1;
+    const outerR = baseR * scale;
+    const innerR = innerBaseR * Math.max(0.7, scale);
+
     comms.forEach((a, i) => {
         const angle = (i / Math.max(comms.length, 1)) * Math.PI * 2 - Math.PI / 2;
-        a.x = cx + Math.cos(angle) * outerR;
-        a.y = cy + Math.sin(angle) * outerR;
+        // Add small deterministic scatter based on index so positions
+        // aren't perfectly uniform — but keep it stable across ticks.
+        const scatter = ((i * 37) % 100) / 100 * 0.15 - 0.075;  // ±7.5% of radius
+        const r = outerR * (1 + scatter);
+        a.x = cx + Math.cos(angle) * r;
+        a.y = cy + Math.sin(angle) * r;
     });
 
-    const innerR = Math.min(w, h) * 0.13;
     atks.forEach((a, i) => {
         const angle = (i / Math.max(atks.length, 1)) * Math.PI * 2 - Math.PI / 2;
-        a.x = cx + Math.cos(angle) * innerR;
-        a.y = cy + Math.sin(angle) * innerR;
+        const scatter = ((i * 53) % 100) / 100 * 0.2 - 0.1;
+        const r = innerR * (1 + scatter);
+        a.x = cx + Math.cos(angle) * r;
+        a.y = cy + Math.sin(angle) * r;
     });
 }
 
@@ -109,6 +124,16 @@ function rebuildAgents(stats) {
 
 const AGENT_RADIUS = 26;
 
+// Dynamic agent radius — shrinks as more agents are added.
+function getAgentRadius() {
+    const n = state.agents.length;
+    if (n <= 10) return 26;
+    if (n <= 20) return 20;
+    if (n <= 40) return 14;
+    if (n <= 70) return 10;
+    return 7;
+}
+
 function render() {
     try {
         const w = canvas.offsetWidth || 600;
@@ -128,30 +153,32 @@ function render() {
         }
 
         // Draw and filter active animations.
+        const agentR = getAgentRadius();
         state.animations = state.animations.filter(anim => {
             const elapsed = now - anim.startTime;
             if (elapsed < 0) return true;   // not started yet
             if (elapsed > anim.duration) return false;
-            try { drawAnimation(anim, elapsed); } catch (e) { /* skip broken anim */ }
+            try { drawAnimation(anim, elapsed, agentR); } catch (e) { /* skip broken anim */ }
             return true;
         });
 
         // Draw agents on top.
-        state.agents.forEach(a => { try { drawAgent(a, now); } catch (e) {} });
+        state.agents.forEach(a => { try { drawAgent(a, now, agentR); } catch (e) {} });
     } catch (e) {
         // Never let the render loop die.
     }
     requestAnimationFrame(render);
 }
 
-function drawAgent(a, now) {
+function drawAgent(a, now, radius) {
+    const r = radius || 26;
     const pulse = state.animations.some(anim =>
         (anim.fromName === a.name || anim.toName === a.name) &&
         (now - anim.startTime) < 500 && (now - anim.startTime) > 0
     );
 
     ctx.beginPath();
-    ctx.arc(a.x, a.y, AGENT_RADIUS, 0, Math.PI * 2);
+    ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
     ctx.fillStyle = a.color;
     ctx.fill();
     ctx.lineWidth = pulse ? 4 : 3;
@@ -159,21 +186,28 @@ function drawAgent(a, now) {
     ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.font = `bold ${Math.max(8, r * 0.55)}px Inter, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(initials(a.name), a.x, a.y);
 
-    ctx.fillStyle = cssVar('--text');
-    ctx.font = '600 11px "IBM Plex Mono", monospace';
-    ctx.fillText(a.name, a.x, a.y + AGENT_RADIUS + 14);
+    // Only draw name labels if the circles are big enough.
+    if (r >= 14) {
+        ctx.fillStyle = cssVar('--text');
+        ctx.font = `600 ${Math.max(8, r * 0.42)}px "IBM Plex Mono", monospace`;
+        ctx.fillText(a.name, a.x, a.y + r + 14);
+    }
 
-    ctx.font = '9px "IBM Plex Mono", monospace';
-    ctx.fillStyle = a.role === 'attacker' ? cssVar('--danger') : cssVar('--text-muted');
-    ctx.fillText(a.role === 'attacker' ? '▲ HACKER' : '◆ COMM', a.x, a.y - AGENT_RADIUS - 8);
+    // Only draw role labels if circles are big enough.
+    if (r >= 18) {
+        ctx.font = `${Math.max(7, r * 0.32)}px "IBM Plex Mono", monospace`;
+        ctx.fillStyle = a.role === 'attacker' ? cssVar('--danger') : cssVar('--text-muted');
+        ctx.fillText(a.role === 'attacker' ? '▲ HACKER' : '◆ COMM', a.x, a.y - r - 8);
+    }
 }
 
-function drawAnimation(anim, elapsed) {
+function drawAnimation(anim, elapsed, agentR) {
+    const r = agentR || 26;
     const progress = Math.min(1, Math.max(0, elapsed / anim.duration));
     if (progress <= 0) return;
 
@@ -183,10 +217,10 @@ function drawAnimation(anim, elapsed) {
         const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist < 1) return;
         const ux = dx / dist, uy = dy / dist;
-        const sx = from.x + ux * (AGENT_RADIUS + 4);
-        const sy = from.y + uy * (AGENT_RADIUS + 4);
-        const ex = to.x - ux * (AGENT_RADIUS + 8);
-        const ey = to.y - uy * (AGENT_RADIUS + 8);
+        const sx = from.x + ux * (r + 4);
+        const sy = from.y + uy * (r + 4);
+        const ex = to.x - ux * (r + 8);
+        const ey = to.y - uy * (r + 8);
 
         const alpha = 1 - Math.pow(progress, 2);
         const hex = (anim.color || '#888').replace('#', '');
@@ -321,14 +355,9 @@ function processSnapshot(payload) {
 function connect() {
     state.ws = new WebSocket(wsUrl('/ws/sim'));
     state.ws.onopen = () => {
-        const el = document.getElementById('ws-status');
-        el.className = 'tag tag-success';
-        el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> live';
+        // ws-status element was removed from the page; nothing to update.
     };
     state.ws.onclose = () => {
-        const el = document.getElementById('ws-status');
-        el.className = 'tag tag-danger';
-        el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:0.5rem"></i> offline';
         setTimeout(connect, 1500);
     };
     state.ws.onerror = () => { try { state.ws.close(); } catch(e){} };
