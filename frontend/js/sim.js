@@ -15,6 +15,10 @@ const state = {
     pendingAnimations: [],
     filters: { agent: '', cipher: '', attack: '', outcome: 'all' },
     openModal: null,
+    // Log scroll tracking: if the user scrolls up in the log, we stop
+    // re-rendering until they scroll back to the bottom.
+    logUserScrolled: false,
+    pendingLogRender: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -737,6 +741,40 @@ function truncate(s, n) {
 function renderLog() {
     const container = document.getElementById('log-entries');
     if (!container) return;
+
+    // Check if the user is scrolled to (or near) the bottom. If not,
+    // don't re-render — it would jolt their scroll position and cause
+    // the blank-flash issue. We'll re-render on the next tick where
+    // they ARE at the bottom, or when they manually change a filter.
+    const isNearBottom = (container.scrollTop + container.clientHeight) >= (container.scrollHeight - 50);
+    if (state.logUserScrolled && !isNearBottom) {
+        // Skip this render; the user is reading older entries.
+        state.pendingLogRender = true;
+        // Still update the count badge.
+        let count = state.events.length;
+        const f = state.filters;
+        if (f.agent || f.cipher || f.attack || f.outcome !== 'all') {
+            count = state.events.filter(e => {
+                if (f.agent) {
+                    if (e.kind === 'send') { if (!(e.sender === f.agent || e.target === f.agent)) return false; }
+                    else if (e.kind === 'intercepted' || e.kind === 'secure') { if (e.sender !== f.agent) return false; }
+                    else if (e.kind === 'skip') { if (e.attacker !== f.agent) return false; }
+                }
+                if (f.cipher && e.cipher !== f.cipher) return false;
+                if (f.attack && e.attack !== f.attack) return false;
+                if (f.outcome === 'success' && e.kind !== 'intercepted') return false;
+                if (f.outcome === 'failed' && e.kind !== 'secure') return false;
+                if (f.outcome === 'send' && e.kind !== 'send') return false;
+                return true;
+            }).length;
+        }
+        const countEl = document.getElementById('log-count');
+        if (countEl) countEl.textContent = count;
+        return;
+    }
+    state.logUserScrolled = false;
+    state.pendingLogRender = false;
+
     let events = state.events.slice().reverse();
 
     const f = state.filters;
@@ -804,7 +842,13 @@ function renderLog() {
 }
 
 function togglePanel(id) { document.getElementById(id).classList.toggle('collapsed'); }
-function setFilter(key, val) { state.filters[key] = val; renderLog(); }
+function setFilter(key, val) {
+    state.filters[key] = val;
+    // Force render when user manually changes a filter.
+    state.logUserScrolled = false;
+    state.pendingLogRender = false;
+    renderLog();
+}
 
 function clearFilters() {
     state.filters = { agent: '', cipher: '', attack: '', outcome: 'all' };
@@ -812,6 +856,9 @@ function clearFilters() {
     document.getElementById('filter-cipher').value = '';
     document.getElementById('filter-attack').value = '';
     document.getElementById('filter-outcome').value = 'all';
+    // Force render.
+    state.logUserScrolled = false;
+    state.pendingLogRender = false;
     renderLog();
 }
 
@@ -1029,6 +1076,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filter-cipher').onchange = e => setFilter('cipher', e.target.value);
     document.getElementById('filter-attack').onchange = e => setFilter('attack', e.target.value);
     document.getElementById('filter-outcome').onchange = e => setFilter('outcome', e.target.value);
+
+    // Track when the user scrolls up in the log panel — if they do,
+    // stop re-rendering on new ticks until they scroll back to bottom.
+    const logEntries = document.getElementById('log-entries');
+    if (logEntries) {
+        logEntries.addEventListener('scroll', () => {
+            const isNearBottom = (logEntries.scrollTop + logEntries.clientHeight) >= (logEntries.scrollHeight - 50);
+            if (!isNearBottom) {
+                state.logUserScrolled = true;
+            } else if (state.pendingLogRender) {
+                state.logUserScrolled = false;
+                renderLog();
+            }
+        });
+    }
 
     document.getElementById('phone-back').onclick = closePhone;
     document.getElementById('attacker-close').onclick = closeAttacker;

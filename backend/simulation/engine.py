@@ -307,6 +307,11 @@ class Simulation:
 
         # 2. Attackers attempt to break messages.
         # Each attacker picks one message from the channel (randomly).
+        # Track which messages have already been broken this tick, so
+        # that multiple attackers cracking the same message don't inflate
+        # the break count beyond the number of messages actually sent.
+        broken_msg_keys = set()
+
         for atk in self.attackers:
             if not self.channel:
                 continue
@@ -353,14 +358,22 @@ class Simulation:
             # Inform the sender's communicator strategy.
             sender_comm = next((c for c in self.communicators
                                 if c.name == target_msg.sender), None)
-            if sender_comm is not None:
+            # Only record the cipher outcome once per message (the first
+            # attacker's result counts; subsequent attackers attacking the
+            # same message still get credit for their attack, but the
+            # communicator's strategy only learns from the first break).
+            msg_key = (target_msg.tick, target_msg.sender, target_msg.target)
+            already_broken = msg_key in broken_msg_keys
+
+            if sender_comm is not None and not already_broken:
                 sender_comm.record_cipher_outcome(target_msg.cipher_name, success)
 
-            if success:
+            if success and not already_broken:
                 self.cipher_breaks[target_msg.cipher_name] += 1
                 self.attack_success[attack_name] += 1
                 self.attacker_success[atk.name] += 1
                 self.communicator_broken[target_msg.sender] += 1
+                broken_msg_keys.add(msg_key)
                 ev = Event(
                     tick=self.tick, kind="intercepted",
                     sender=target_msg.sender, target=target_msg.target,
@@ -368,6 +381,21 @@ class Simulation:
                     attacker=atk.name, message_preview="",
                     security_level=target_msg.security_level,
                     notes=notes,
+                )
+            elif success and already_broken:
+                # This attacker also cracked the message, but it was
+                # already counted as broken by a previous attacker.
+                # Credit the attacker with a successful attack, but
+                # don't double-count the cipher/communicator break.
+                self.attack_success[attack_name] += 1
+                self.attacker_success[atk.name] += 1
+                ev = Event(
+                    tick=self.tick, kind="intercepted",
+                    sender=target_msg.sender, target=target_msg.target,
+                    cipher=target_msg.cipher_name, attack=attack_name,
+                    attacker=atk.name, message_preview="",
+                    security_level=target_msg.security_level,
+                    notes=notes + " (already broken by another hacker)",
                 )
             else:
                 ev = Event(
