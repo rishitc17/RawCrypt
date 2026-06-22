@@ -35,6 +35,25 @@ function applyThemeVisuals() {
     document.querySelectorAll('.switch .input').forEach(el => {
         el.checked = isDark;
     });
+    // Swap the favicon based on theme.
+    const favicon = document.querySelector('link[rel="icon"]');
+    if (favicon) {
+        favicon.href = isDark ? '/assets/favicon-dark.svg' : '/assets/favicon-light.svg';
+    }
+    // Swap the brand-mark glyph SVG.
+    document.querySelectorAll('.brand-mark .glyph svg').forEach(svg => {
+        const grad = svg.querySelector('linearGradient stop:first-child');
+        const grad2 = svg.querySelector('linearGradient stop:last-child');
+        if (grad && grad2) {
+            if (isDark) {
+                grad.setAttribute('stop-color', '#a3e635');
+                grad2.setAttribute('stop-color', '#84cc16');
+            } else {
+                grad.setAttribute('stop-color', '#e8702a');
+                grad2.setAttribute('stop-color', '#c25a1a');
+            }
+        }
+    });
 }
 
 function setTheme(theme) {

@@ -17,13 +17,13 @@ function startMatrixRain(canvas) {
     });
 
     const chars = 'アカサタナハマヤラワガザダバパイキシチニヒミリギジヂビピウクスツヌフムユルグズヅブプエケセテネヘメレゲゼデベペオコソトノホモヨロゴゾドボポ01'.split('');
-    const fontSize = 16;
+    const fontSize = 14;
     let columns = Math.floor(canvas.offsetWidth / fontSize);
     let drops = new Array(columns).fill(0).map(() => Math.random() * -100);
     // FIX: timestamp-based advancement — speed is independent of frame rate.
-    // Advance drops every 120ms at a constant rate of 0.4 per step.
-    const ADVANCE_INTERVAL_MS = 120;
-    const DROP_SPEED = 0.4;
+    // Denser (smaller font → more columns) and slightly faster (90ms interval).
+    const ADVANCE_INTERVAL_MS = 90;
+    const DROP_SPEED = 0.5;
     let lastAdvanceTime = 0;
 
     function recomputeColumns() {
