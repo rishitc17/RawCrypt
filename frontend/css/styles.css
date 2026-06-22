@@ -436,7 +436,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 .btn-ghost:hover { color: var(--text); background: var(--bg-panel-2); }
 
-.btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+.btn-danger { background: #c9402a; color: white; border-color: #c9402a; }
 .btn-danger:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn-success { background: var(--success); color: var(--accent-text); border-color: var(--success); }
 .btn-success:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: var(--shadow-md); }
