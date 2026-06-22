@@ -543,7 +543,7 @@ function updateStatsPanels() {
     } else {
         cipherEl.innerHTML = cipherRows.map(c => {
             const color = cipherColorFor(c.name);
-            const breakColor = cssVar('--danger');
+            const breakColor = BROKEN_RED;
             // The broken portion is shown as a red segment inside the usage bar.
             const brokenSegmentPct = c.usage_pct * (c.break_pct / 100);
             return `
@@ -602,25 +602,27 @@ function updateStatsPanels() {
 
 function cipherColorFor(slug) {
     return {
-        shift:        '#00838f',  // teal
-        rail_fence:   '#00bcd4',  // cyan
-        permutation:  '#1565c0',  // blue
-        vigenere:     '#7b1fa2',  // purple
-        substitution: '#ad1457',  // pink
-        stream:       '#6a1b9a',  // violet
-        feistel:      '#e65100',  // deep orange
-        aes:          '#f57f17',  // amber
-        rsa:          '#2e7d32',  // green
+        shift:        '#10B981',  // emerald
+        rail_fence:   '#65A30D',  // lime
+        permutation:  '#4F46E5',  // indigo
+        vigenere:     '#EC4899',  // pink
+        substitution: '#EA580C',  // orange
+        stream:       '#06B6D4',  // cyan
+        feistel:      '#F59E0B',  // amber
+        aes:          '#2563EB',  // blue
+        rsa:          '#9333EA',  // purple
     }[slug] || '#888';
 }
 function attackColorFor(slug) {
     return {
-        brute_force:      '#c62828',  // red
-        frequency:        '#d84315',  // deep orange-red
-        known_plaintext:  '#ef6c00',  // orange
-        dictionary:       '#f9a825',  // amber
+        brute_force:      '#DC2626',  // red
+        frequency:        '#0D9488',  // teal
+        known_plaintext:  '#CA8A04',  // yellow
+        dictionary:       '#F43F5E',  // rose
     }[slug] || '#888';
 }
+// Universal Red for the "broken" overlay on cipher usage bars.
+const BROKEN_RED = '#EF4444';
 
 // ---------------------------------------------------------------------------
 // Agent roster — two tabs (Communicators / Hackers).
