@@ -676,7 +676,10 @@ function renderRoster() {
     }
 
     const commHtml = comms.map(a => {
-        const sent = a.sent || 0, broken = a.broken || 0, ok = sent - broken;
+        const sent = a.sent || 0, broken = a.broken || 0;
+        // Clamp: ok can't be negative (broken can momentarily exceed sent
+        // due to a race between the send and attack event updates).
+        const ok = Math.max(0, sent - broken);
         return `
             <div class="phone-list-item" onclick="openAgent('${a.name}','communicator')">
                 <div class="avatar" style="background:${a.color}">${initials(a.name)}</div>
@@ -816,6 +819,15 @@ function renderLog() {
 
 function togglePanel(id) { document.getElementById(id).classList.toggle('collapsed'); }
 function setFilter(key, val) { state.filters[key] = val; renderLog(); }
+
+function clearFilters() {
+    state.filters = { agent: '', cipher: '', attack: '', outcome: 'all' };
+    document.getElementById('filter-agent').value = '';
+    document.getElementById('filter-cipher').value = '';
+    document.getElementById('filter-attack').value = '';
+    document.getElementById('filter-outcome').value = 'all';
+    renderLog();
+}
 
 // ---------------------------------------------------------------------------
 // Phone modal.
