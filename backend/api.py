@@ -66,7 +66,8 @@ class SimManager:
 
     async def reset(self, num_comms: int, num_atks: int,
                     attacker_temp: float, communicator_temp: float,
-                    tick_interval: float, seed: Optional[int]):
+                    tick_interval: float, attack_budget: float,
+                    seed: Optional[int]):
         was_running = self.running
         await self.pause()
         # Wait one tick for the loop to actually stop.
@@ -75,6 +76,7 @@ class SimManager:
                               num_attackers=num_atks,
                               attacker_temperature=attacker_temp,
                               communicator_temperature=communicator_temp,
+                              attack_budget=attack_budget,
                               seed=seed)
         self.tick_interval = tick_interval
         if was_running:
@@ -146,6 +148,7 @@ class SimManager:
                 "num_attackers": len(s.attackers),
                 "attacker_temperature": s.attacker_temperature,
                 "communicator_temperature": s.communicator_temperature,
+                "attack_budget": s.attack_budget,
             },
             "recent_events": [_event_to_dict(e) for e in s.recent_events(50)],
             "stats": self._stats(),
@@ -270,6 +273,7 @@ class SimConfig(BaseModel):
     num_attackers: int = 2
     attacker_temperature: float = 1.0
     communicator_temperature: float = 1.2
+    attack_budget: float = 1.5
     tick_interval: float = 0.9
     seed: Optional[int] = None
 
@@ -300,6 +304,7 @@ async def sim_reset(cfg: SimConfig):
         attacker_temp=cfg.attacker_temperature,
         communicator_temp=cfg.communicator_temperature,
         tick_interval=cfg.tick_interval,
+        attack_budget=cfg.attack_budget,
         seed=cfg.seed,
     )
     return {"ok": True, "config": cfg.dict()}

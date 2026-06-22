@@ -168,6 +168,7 @@ class Simulation:
         event_history: int = 200,
         attacker_temperature: float = 1.0,
         communicator_temperature: float = 1.2,
+        attack_budget: float = 1.5,
         seed: Optional[int] = None,
     ):
         if seed is not None:
@@ -177,6 +178,7 @@ class Simulation:
         self.tick: int = 0
         self.attacker_temperature = attacker_temperature
         self.communicator_temperature = communicator_temperature
+        self.attack_budget = attack_budget
 
         # Generate fresh RSA params for this simulation run.
         p, q, e = _random_rsa_params(self._rng)
@@ -336,7 +338,7 @@ class Simulation:
             # the corpus messages begins with "The" or "Hello" etc.
             crib = self._guess_crib(target_msg.plaintext)
 
-            budget = 1.5  # seconds
+            budget = self.attack_budget  # seconds (configurable)
             try:
                 result = attack_meta.instance.attempt(
                     target_msg.ciphertext_hex, handle,

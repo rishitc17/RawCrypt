@@ -430,7 +430,8 @@ function processSnapshot(payload) {
     state.stats = payload.stats;
     state.config = {
         ...payload.config,
-        tick_interval: payload.tick_interval || 0.9,  // FIX: include tick_interval
+        tick_interval: payload.tick_interval || 0.9,
+        attack_budget: payload.config?.attack_budget || 1.5,
     };
     state.running = payload.running;
     rebuildAgents(payload.stats);
@@ -487,6 +488,51 @@ function setupNavigationPause() {
 }
 
 // ---------------------------------------------------------------------------
+// S1: Shareable simulation links.
+// ---------------------------------------------------------------------------
+
+function loadConfigFromUrl() {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    const comms = parseInt(params.get('comms'));
+    const atks = parseInt(params.get('atks'));
+    const seed = parseInt(params.get('seed'));
+    const atkTemp = parseFloat(params.get('atkTemp'));
+    const commTemp = parseFloat(params.get('commTemp'));
+    const budget = parseFloat(params.get('budget'));
+
+    if (comms) document.getElementById('num-comms').value = comms;
+    if (atks) document.getElementById('num-atks').value = atks;
+    if (seed) document.getElementById('seed').value = seed;
+    if (atkTemp) document.getElementById('atk-temp').value = atkTemp;
+    if (commTemp) document.getElementById('comm-temp').value = commTemp;
+    if (budget) document.getElementById('attack-budget').value = budget;
+
+    // Update the displayed values.
+    document.getElementById('num-comms-val').textContent = comms || 4;
+    document.getElementById('num-atks-val').textContent = atks || 2;
+    document.getElementById('atk-temp-val').textContent = (atkTemp || 1.0).toFixed(2);
+    document.getElementById('comm-temp-val').textContent = (commTemp || 1.2).toFixed(2);
+    document.getElementById('attack-budget-val').textContent = (budget || 1.5).toFixed(1) + 's';
+
+    // Preview agents with the loaded config.
+    previewAgents();
+}
+
+function updateShareUrl() {
+    const cfg = readConfigFromControls();
+    const params = new URLSearchParams();
+    params.set('comms', cfg.num_communicators);
+    params.set('atks', cfg.num_attackers);
+    if (cfg.seed) params.set('seed', cfg.seed);
+    params.set('atkTemp', cfg.attacker_temperature);
+    params.set('commTemp', cfg.communicator_temperature);
+    params.set('budget', cfg.attack_budget);
+    window.history.replaceState(null, '', '/simulation#' + params.toString());
+}
+
+// ---------------------------------------------------------------------------
 // Sim control.
 // ---------------------------------------------------------------------------
 
@@ -501,12 +547,14 @@ async function simStart() {
             num_attackers: state.config.num_attackers,
             attacker_temperature: state.config.attacker_temperature,
             communicator_temperature: state.config.communicator_temperature,
+            attack_budget: state.config.attack_budget || 1.5,
             tick_interval: 0.1,
             seed: state.config.seed || null,
         };
         if (JSON.stringify(cfg) !== JSON.stringify(currentCfg)) {
             await apiPost('/api/sim/reset', cfg);
             state.config = {...state.config, ...cfg};
+            updateShareUrl();
         }
     }
     await apiPost('/api/sim/start', {});
@@ -527,6 +575,7 @@ function readConfigFromControls() {
         num_attackers: parseInt(document.getElementById('num-atks').value),
         attacker_temperature: parseFloat(document.getElementById('atk-temp').value),
         communicator_temperature: parseFloat(document.getElementById('comm-temp').value),
+        attack_budget: parseFloat(document.getElementById('attack-budget').value),
         tick_interval: 0.1,  // backend runs as fast as possible
         seed: parseInt(document.getElementById('seed').value) || null,
     };
@@ -542,6 +591,7 @@ async function simReset() {
     state.animations = [];
     state.pendingAnimations = [];
     state.simStarted = false;
+    updateShareUrl();
     renderRoster();
     renderLog();
     updateStatsPanels();
@@ -574,11 +624,14 @@ function updateControlUI() {
     document.getElementById('num-atks-val').textContent = state.config.num_attackers;
     document.getElementById('atk-temp-val').textContent = state.config.attacker_temperature.toFixed(2);
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
+    const ab = state.config.attack_budget || 1.5;
+    document.getElementById('attack-budget').value = ab;
+    document.getElementById('attack-budget-val').textContent = ab.toFixed(1) + 's';
 
     // Disable ALL control panel inputs (except Start/Pause/Reset buttons)
     // once the sim has been started. They are only re-enabled on Reset.
     const lockAll = state.simStarted;
-    ['num-comms', 'num-atks', 'seed', 'atk-temp', 'comm-temp'].forEach(id => {
+    ['num-comms', 'num-atks', 'seed', 'atk-temp', 'comm-temp', 'attack-budget'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.disabled = lockAll;
@@ -980,6 +1033,40 @@ async function openPhone(name) {
     document.getElementById('phone-modal').classList.add('open');
 }
 
+function buildStrategyPanel(agent) {
+    const actions = agent.topActions || [];
+    if (actions.length === 0) return '';
+    const isAttacker = agent.role === 'attacker';
+    const label = isAttacker ? 'Attack Preferences' : 'Cipher Preferences';
+    const icon = isAttacker ? 'fa-skull-crossbones' : 'fa-comment-dots';
+    const colorFn = isAttacker ? attackColorFor : cipherColorFor;
+    const nameFn = isAttacker ? attackName : cipherName;
+
+    const bars = actions.map(([slug, prob]) => {
+        const pct = (prob * 100).toFixed(1);
+        const color = colorFn(slug);
+        const nm = nameFn(slug);
+        return `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="width:90px;font-size:0.78rem;font-weight:600;color:var(--text)">${nm}</span>
+                <div style="flex:1;height:10px;background:var(--bg-deep);border-radius:5px;overflow:hidden">
+                    <div style="width:${pct}%;height:100%;background:${color};border-radius:5px;transition:width 300ms"></div>
+                </div>
+                <span style="width:40px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted)">${pct}%</span>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div style="padding:12px;margin-bottom:12px;background:var(--bg-panel-2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <div style="font-family:var(--font-mono);font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px">
+                <i class="fa-solid ${icon}" style="color:var(--accent)"></i> ${label}
+            </div>
+            ${bars}
+        </div>
+    `;
+}
+
 async function refreshPhone() {
     if (!state.openModal || state.openModal.type !== 'phone') return;
     const name = state.openModal.name;
@@ -989,6 +1076,10 @@ async function refreshPhone() {
     const avatarEl = document.getElementById('phone-avatar');
     const nameEl = document.getElementById('phone-name');
     const statusEl = document.getElementById('phone-status');
+
+    // Build the strategy panel (full probability distribution).
+    const agent = state.agents.find(a => a.name === name);
+    const strategyHtml = agent ? buildStrategyPanel(agent) : '';
 
     if (state.openModal.contact) {
         const contact = state.openModal.contact;
@@ -1001,11 +1092,11 @@ async function refreshPhone() {
 
         const msgs = (data.contacts || {})[contact] || [];
         if (msgs.length === 0) {
-            body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-comment-slash"></i><div>No messages yet.</div></div>';
+            body.innerHTML = strategyHtml + '<div class="empty-state"><i class="fa-solid fa-comment-slash"></i><div>No messages yet.</div></div>';
             return;
         }
         let lastTick = -10;
-        body.innerHTML = msgs.map(m => {
+        body.innerHTML = strategyHtml + msgs.map(m => {
             const tickDivider = (m.tick - lastTick > 5) ? `<div class="chat-day-divider">— Tick ${m.tick} —</div>` : '';
             lastTick = m.tick;
             const cls = m.direction === 'out' ? 'out' : 'in';
@@ -1028,22 +1119,21 @@ async function refreshPhone() {
         body.scrollTop = body.scrollHeight;
     } else {
         header.classList.remove('show-back');
-        const agent = state.agents.find(a => a.name === name);
-        avatarEl.style.background = agent ? agent.color : '#888';
+        const agentObj = state.agents.find(a => a.name === name);
+        avatarEl.style.background = agentObj ? agentObj.color : '#888';
         avatarEl.textContent = initials(name);
         nameEl.textContent = name;
         statusEl.innerHTML = '<span class="dot"></span> online';
 
         const contacts = Object.keys(data.contacts || {});
         if (contacts.length === 0) {
-            body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-comments"></i><div>No messages yet.</div></div>';
+            body.innerHTML = strategyHtml + '<div class="empty-state"><i class="fa-solid fa-comments"></i><div>No messages yet.</div></div>';
             return;
         }
-        body.innerHTML = contacts.map(c => {
+        body.innerHTML = strategyHtml + contacts.map(c => {
             const msgs = data.contacts[c];
             const last = msgs[msgs.length - 1];
             const preview = last.plaintext.slice(0, 32);
-            // FIX: only show exclamation if the LATEST message was intercepted.
             const lastIntercepted = last && last.broken;
             const contactAgent = state.agents.find(a => a.name === c);
             const contactColor = contactAgent ? contactAgent.color : '#888';
@@ -1083,12 +1173,16 @@ async function refreshAttackerPanel() {
     const body = document.getElementById('attacker-body');
     document.getElementById('attacker-title').textContent = `${name} — attack log`;
 
+    // Build the strategy panel (full probability distribution).
+    const agent = state.agents.find(a => a.name === name);
+    const strategyHtml = agent ? buildStrategyPanel(agent) : '';
+
     const attempts = data.attempts || [];
     if (attempts.length === 0) {
-        body.innerHTML = '<div class="empty-state"><i class="fa-solid fa-satellite-dish"></i><div>No attacks yet.</div></div>';
+        body.innerHTML = strategyHtml + '<div class="empty-state"><i class="fa-solid fa-satellite-dish"></i><div>No attacks yet.</div></div>';
         return;
     }
-    body.innerHTML = attempts.slice().reverse().map(a => {
+    body.innerHTML = strategyHtml + attempts.slice().reverse().map(a => {
         const color = a.success ? 'var(--danger)' : a.skipped ? 'var(--text-dim)' : 'var(--success)';
         const badge = a.success
             ? '<span class="tag tag-danger"><i class="fa-solid fa-skull-crossbones"></i> Cracked</span>'
@@ -1144,6 +1238,10 @@ document.addEventListener('DOMContentLoaded', () => {
     connect();
     setupNavigationPause();
 
+    // S1: Load config from URL hash if present (e.g.
+    // /simulation#comms=10&atks=5&seed=42&atkTemp=1.0&commTemp=1.2&budget=1.5)
+    loadConfigFromUrl();
+
     document.getElementById('btn-start').onclick = simStart;
     document.getElementById('btn-pause').onclick = simPause;
     document.getElementById('btn-reset').onclick = simReset;
@@ -1173,6 +1271,11 @@ document.addEventListener('DOMContentLoaded', () => {
         await pauseOnChange();
         await apiPost('/api/sim/tune', {communicator_temperature: parseFloat(e.target.value)});
         state.config.communicator_temperature = parseFloat(e.target.value);
+    });
+
+    // Attack budget: live-preview value, apply on Reset.
+    document.getElementById('attack-budget').addEventListener('input', e => {
+        document.getElementById('attack-budget-val').textContent = parseFloat(e.target.value).toFixed(1) + 's';
     });
 
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);
