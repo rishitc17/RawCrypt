@@ -71,9 +71,9 @@ function layoutAgents(explicitW, explicitH) {
     const totalAgents = comms.length + atks.length;
 
     // Scale the radius and agent size based on the number of agents.
-    // Use most of the available space — bigger rings = more spread.
-    const baseR = Math.min(w, h) * 0.46;
-    const innerBaseR = Math.min(w, h) * 0.16;
+    // Leave room at top/bottom for labels — don't fill the whole canvas.
+    const baseR = Math.min(w, h) * 0.42;
+    const innerBaseR = Math.min(w, h) * 0.15;
     // Shrink the outer ring only slightly as agent count grows.
     const scale = totalAgents > 20 ? Math.max(0.6, 1 - (totalAgents - 20) * 0.008) : 1;
     const outerR = baseR * scale;
@@ -194,8 +194,29 @@ function drawAgent(a, now, radius) {
         (now - anim.startTime) < 500 && (now - anim.startTime) > 0
     );
 
-    ctx.beginPath();
-    ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+    // Communicators = circles, Hackers = rounded squares (for visual distinction)
+    if (a.role === 'attacker') {
+        // Rounded square
+        const size = r * 2;
+        const x = a.x - r;
+        const y = a.y - r;
+        const radiusCorner = r * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(x + radiusCorner, y);
+        ctx.lineTo(x + size - radiusCorner, y);
+        ctx.quadraticCurveTo(x + size, y, x + size, y + radiusCorner);
+        ctx.lineTo(x + size, y + size - radiusCorner);
+        ctx.quadraticCurveTo(x + size, y + size, x + size - radiusCorner, y + size);
+        ctx.lineTo(x + radiusCorner, y + size);
+        ctx.quadraticCurveTo(x, y + size, x, y + size - radiusCorner);
+        ctx.lineTo(x, y + radiusCorner);
+        ctx.quadraticCurveTo(x, y, x + radiusCorner, y);
+        ctx.closePath();
+    } else {
+        // Circle
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+    }
     ctx.fillStyle = a.color;
     ctx.fill();
     ctx.lineWidth = pulse ? 4 : 3;
@@ -271,7 +292,7 @@ function drawAnimation(anim, elapsed, agentR) {
     } else if (anim.kind === 'attack') {
         const from = anim.from, to = anim.to;
         const alpha = 1 - Math.pow(progress, 2);
-        const color = anim.success ? cssVar('--success') : cssVar('--danger');
+        const color = anim.success ? cssVar('--danger') : cssVar('--success');
 
         ctx.beginPath();
         ctx.setLineDash([6, 4]);
@@ -864,11 +885,8 @@ function renderLog() {
         // FIX: truncate the notes too.
         const notes = truncate(ev.notes, 50);
 
-        // Stagger the CSS animation per entry.
-        const delay = (idx * 60) + 'ms';
-
         return `
-            <div class="${cls}" style="animation-delay:${delay}">
+            <div class="${cls}">
                 <span class="tick">T${ev.tick}</span>
                 <i class="fa-solid ${icon}" style="width:14px;color:var(--text-muted)"></i>
                 ${ev.kind === 'send'
