@@ -32,8 +32,8 @@ function currentThemeIsDark() {
 
 function applyThemeVisuals() {
     const isDark = currentThemeIsDark();
-    document.querySelectorAll('.theme-toggle').forEach(el => {
-        el.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.querySelectorAll('.theme-switch__checkbox').forEach(el => {
+        el.checked = isDark;
     });
 }
 
@@ -49,14 +49,19 @@ function toggleTheme() {
 
 document.addEventListener('DOMContentLoaded', () => {
     applyThemeVisuals();
-    document.querySelectorAll('.theme-toggle').forEach(el => {
-        el.addEventListener('click', toggleTheme);
+    // Wire up the UIVerse theme toggle — clicking the label toggles the
+    // checkbox, and we sync the theme to the checkbox state.
+    document.querySelectorAll('.theme-switch').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleTheme();
+        });
     });
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (!localStorage.getItem('rawcrypt-theme')) applyThemeVisuals();
     });
 
-    // FIX: highlight active nav link by comparing full pathname.
+    // Highlight active nav link.
     const path = window.location.pathname;
     document.querySelectorAll('.nav-links a').forEach(a => {
         const href = a.getAttribute('href');

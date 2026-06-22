@@ -558,7 +558,7 @@ function updateStatsPanels() {
                     <span class="tooltip-text">
                         <div class="row"><span>Share of traffic</span><b>${c.usage_pct.toFixed(1)}%</b></div>
                         <div class="row"><span>Sent</span><b>${c.used}</b></div>
-                        <div class="row"><span>Broken</span><b style="color:#ff8a80">${c.broken}</b></div>
+                        <div class="row"><span>Broken</span><b>${c.broken}</b></div>
                         <div class="row"><span>Break rate</span><b>${c.break_pct.toFixed(1)}%</b></div>
                     </span>
                 </div>
@@ -601,13 +601,25 @@ function updateStatsPanels() {
 }
 
 function cipherColorFor(slug) {
-    return {shift:'#00838f', rail_fence:'#00838f', permutation:'#1565c0',
-            vigenere:'#1565c0', substitution:'#6a1b9a', stream:'#6a1b9a',
-            feistel:'#d84315', aes:'#d84315', rsa:'#2e7d32'}[slug] || '#888';
+    return {
+        shift:        '#00838f',  // teal
+        rail_fence:   '#00bcd4',  // cyan
+        permutation:  '#1565c0',  // blue
+        vigenere:     '#7b1fa2',  // purple
+        substitution: '#ad1457',  // pink
+        stream:       '#6a1b9a',  // violet
+        feistel:      '#e65100',  // deep orange
+        aes:          '#f57f17',  // amber
+        rsa:          '#2e7d32',  // green
+    }[slug] || '#888';
 }
 function attackColorFor(slug) {
-    return {brute_force:'#c62828', frequency:'#c62828',
-            known_plaintext:'#ef6c00', dictionary:'#ef6c00'}[slug] || '#888';
+    return {
+        brute_force:      '#c62828',  // red
+        frequency:        '#d84315',  // deep orange-red
+        known_plaintext:  '#ef6c00',  // orange
+        dictionary:       '#f9a825',  // amber
+    }[slug] || '#888';
 }
 
 // ---------------------------------------------------------------------------
@@ -723,11 +735,14 @@ function renderLog() {
     if (f.outcome === 'failed') events = events.filter(e => e.kind === 'secure');
     if (f.outcome === 'send') events = events.filter(e => e.kind === 'send');
 
+    // FIX: count total matching events BEFORE slicing (so the counter
+    // doesn't cap at 80).
+    const totalCount = events.length;
     events = events.slice(0, 80);
 
-    // FIX: update the log count badge.
+    // FIX: update the log count badge with the total matching count.
     const countEl = document.getElementById('log-count');
-    if (countEl) countEl.textContent = events.length;
+    if (countEl) countEl.textContent = totalCount;
 
     if (events.length === 0) {
         container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
@@ -742,8 +757,8 @@ function renderLog() {
         else if (ev.kind === 'secure') icon = 'fa-shield-halved';
         else if (ev.kind === 'skip') icon = 'fa-forward';
 
-        // FIX: truncate the message preview to prevent layout clipping.
-        const preview = truncate(ev.message_preview, 40);
+        // FIX: truncate to 37 chars so a 40-char backend preview gets "…" appended.
+        const preview = truncate(ev.message_preview, 37);
         // FIX: truncate the notes too.
         const notes = truncate(ev.notes, 50);
 

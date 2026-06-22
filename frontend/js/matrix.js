@@ -20,11 +20,11 @@ function startMatrixRain(canvas) {
     const fontSize = 16;
     let columns = Math.floor(canvas.offsetWidth / fontSize);
     let drops = new Array(columns).fill(0).map(() => Math.random() * -100);
-    // Constant slow speed: advance drops every 6 frames, capped.
-    const FRAMES_PER_STEP = 6;
-    let frameCount = 0;
-    // Cap the maximum drop speed to prevent hyperliminal acceleration.
-    const MAX_DROP_SPEED = 0.4;
+    // FIX: timestamp-based advancement — speed is independent of frame rate.
+    // Advance drops every 120ms at a constant rate of 0.4 per step.
+    const ADVANCE_INTERVAL_MS = 120;
+    const DROP_SPEED = 0.4;
+    let lastAdvanceTime = 0;
 
     function recomputeColumns() {
         columns = Math.floor(canvas.offsetWidth / fontSize);
@@ -47,7 +47,7 @@ function startMatrixRain(canvas) {
     function draw() {
         if (!running) return;
 
-        // Translucent fill for the trailing fade effect — slower trails.
+        // Translucent fill for the trailing fade effect.
         const isDark = currentThemeIsDark();
         ctx.fillStyle = isDark ? 'rgba(15, 14, 12, 0.03)' : 'rgba(250, 246, 239, 0.03)';
         ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
@@ -55,9 +55,14 @@ function startMatrixRain(canvas) {
         const accent = cssVar('--accent') || (isDark ? '#a3e635' : '#e8702a');
         ctx.font = `${fontSize}px 'IBM Plex Mono', monospace`;
 
-        // Only advance drops every N frames — constant slow speed.
-        const advance = (frameCount % FRAMES_PER_STEP === 0);
-        frameCount++;
+        // FIX: advance drops based on wall-clock time, not frame count.
+        // This prevents speed changes when the frame rate varies (e.g.
+        // when switching tabs or on high-refresh monitors).
+        const now = performance.now();
+        const shouldAdvance = (now - lastAdvanceTime) >= ADVANCE_INTERVAL_MS;
+        if (shouldAdvance) {
+            lastAdvanceTime = now;
+        }
 
         for (let i = 0; i < drops.length; i++) {
             const char = chars[Math.floor(Math.random() * chars.length)];
@@ -68,12 +73,11 @@ function startMatrixRain(canvas) {
             ctx.fillStyle = Math.random() > 0.985 ? '#ffffff' : accent;
             ctx.fillText(char, x, y);
 
-            if (advance) {
+            if (shouldAdvance) {
                 if (y > canvas.offsetHeight && Math.random() > 0.985) {
                     drops[i] = 0;
                 }
-                // Capped constant speed — no acceleration.
-                drops[i] += MAX_DROP_SPEED;
+                drops[i] += DROP_SPEED;
             }
         }
         requestAnimationFrame(draw);
