@@ -48,16 +48,24 @@ function startMatrixRain(canvas) {
 
         const isDark = currentThemeIsDark();
         // Trailing fade — translucent fill over the whole canvas.
-        ctx.fillStyle = isDark ? 'rgba(15, 14, 12, 0.1)' : 'rgba(250, 246, 239, 0.1)';
+        // Light mode uses a stronger fade so old chars disappear faster,
+        // keeping the canvas bright instead of muddy.
+        ctx.fillStyle = isDark ? 'rgba(15, 14, 12, 0.1)' : 'rgba(250, 246, 239, 0.18)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const accent = cssVar('--accent') || (isDark ? '#a3e635' : '#e8702a');
-        ctx.font = `${fontSize}px 'IBM Plex Mono', monospace`;
+        // In light mode, use a darker, more saturated orange so the rain
+        // is clearly visible on the cream background. In dark mode, the
+        // neon green accent is already bright.
+        const accent = isDark
+            ? (cssVar('--accent') || '#a3e635')
+            : '#c25a1a';  // dark orange — high contrast on cream
+        const leadColor = isDark ? '#ffffff' : '#a83d0e';  // darker for leading char
+        ctx.font = `bold ${fontSize}px 'IBM Plex Mono', monospace`;
 
         for (let i = 0; i < drops.length; i++) {
             const text = letters[Math.floor(Math.random() * letters.length)];
             // Occasional bright white "leading" character for depth.
-            ctx.fillStyle = Math.random() > 0.975 ? '#ffffff' : accent;
+            ctx.fillStyle = Math.random() > 0.975 ? leadColor : accent;
             ctx.fillText(text, i * fontSize, drops[i] * fontSize);
             drops[i]++;
             if (drops[i] * fontSize > canvas.height && Math.random() > 0.95) {

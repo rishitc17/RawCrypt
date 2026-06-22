@@ -140,7 +140,161 @@ body {
     min-height: 100vh;
 }
 
-/* ---- Scrollbars (themed with accent colour) ---------------------------- */
+/* ---- Scroll reveal animations ------------------------------------------ */
+
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ---- RPG-style carousel ------------------------------------------------ */
+
+.carousel-section {
+    padding: 60px 0;
+    overflow: hidden;
+    position: relative;
+}
+.carousel-header {
+    text-align: center;
+    margin-bottom: 40px;
+    max-width: 60ch;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 32px;
+}
+.carousel-track-wrap {
+    overflow: hidden;
+    position: relative;
+    /* fade masks on left/right edges */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+}
+.carousel-track {
+    display: flex;
+    gap: 20px;
+    width: max-content;
+    animation: carousel-scroll 60s linear infinite;
+}
+.carousel-track:hover {
+    animation-play-state: paused;
+}
+@keyframes carousel-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+.rpg-card {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--bg-panel);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    box-shadow: var(--shadow-sm);
+    transition: all 200ms;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+}
+.rpg-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-lg);
+}
+.rpg-card-banner {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    position: relative;
+}
+.rpg-card-banner::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent);
+}
+.rpg-card-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+.rpg-card-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text);
+    text-transform: capitalize;
+}
+.rpg-card-type {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+}
+.rpg-card-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    flex: 1;
+}
+.rpg-card-stats {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+.rpg-stat {
+    flex: 1;
+    text-align: center;
+    background: var(--bg-panel-2);
+    border-radius: var(--radius-xs);
+    padding: 4px 6px;
+}
+.rpg-stat-label {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+.rpg-stat-value {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.rpg-card-footer {
+    padding: 8px 16px;
+    background: var(--bg-panel-2);
+    border-top: 1px solid var(--border);
+    text-align: center;
+}
+.rpg-card-footer a {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+}
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg-panel-2); border-radius: 5px; }
@@ -534,6 +688,11 @@ input[type="number"]::-webkit-inner-spin-button {
     height: 100%;
     z-index: 0;
     opacity: 0.35;
+}
+:root[data-theme="light"] .hero canvas { opacity: 0.5; }
+:root[data-theme="dark"] .hero canvas { opacity: 0.35; }
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .hero canvas { opacity: 0.5; }
 }
 .hero-content {
     position: relative;
