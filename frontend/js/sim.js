@@ -10,15 +10,13 @@ const state = {
     },
     agents: [],
     events: [],
+    revealedEvents: [],     // events that have passed their stagger timer
+    pendingLogEntries: [],  // events waiting to be revealed
     stats: null,
     animations: [],
     pendingAnimations: [],
     filters: { agent: '', cipher: '', attack: '', outcome: 'all' },
     openModal: null,
-    // Log scroll tracking: if the user scrolls up in the log, we stop
-    // re-rendering until they scroll back to the bottom.
-    logUserScrolled: false,
-    pendingLogRender: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -165,6 +163,9 @@ function render() {
         ctx.clearRect(0, 0, w, h);
 
         const now = performance.now();
+
+        // Flush any due log entries (staggered reveal).
+        flushPendingLogEntries();
 
         // Promote queued animations (respecting stagger start times).
         while (state.pendingAnimations.length > 0 && state.animations.length < 10) {
@@ -338,7 +339,8 @@ function processTick(payload) {
     // No cap — keep all events for the full log.
     state.events = state.events.concat(payload.events || []);
 
-    // Stagger animations: each event's animation starts after the previous.
+    // Stagger animations AND log entries: each event's animation starts
+    // after the previous, and the log entry appears at the same time.
     let stagger = 0;
     const STAGGER_MS = 200;
     (payload.events || []).forEach(ev => {
@@ -354,6 +356,8 @@ function processTick(payload) {
                     fromName: from.name, toName: to.name,
                     color: cipherColorFor(ev.cipher),
                 });
+                // Schedule this log entry to appear with the animation.
+                scheduleLogEntry(ev, stagger);
                 stagger += STAGGER_MS;
             }
         } else if (ev.kind === 'intercepted' || ev.kind === 'secure') {
@@ -368,20 +372,51 @@ function processTick(payload) {
                     fromName: atk.name, toName: tgt.name,
                     success: ev.kind === 'intercepted',
                 });
+                scheduleLogEntry(ev, stagger);
                 stagger += STAGGER_MS;
             }
+        } else if (ev.kind === 'skip') {
+            // Skip events have no animation, but still show in the log.
+            scheduleLogEntry(ev, stagger);
+            stagger += STAGGER_MS;
         }
     });
 
     state.stats = payload.stats;
     rebuildAgents(payload.stats);
     updateStatsPanels();
-    renderLog();
     refreshOpenModal();
+}
+
+// Queue of log entries waiting to be revealed on a timer.
+function scheduleLogEntry(ev, delayMs) {
+    state.pendingLogEntries.push({ev, revealAt: performance.now() + delayMs});
+}
+
+// Check for due log entries and move them to revealedEvents, then render.
+function flushPendingLogEntries() {
+    if (state.pendingLogEntries.length === 0) return;
+    const now = performance.now();
+    const stillPending = [];
+    let revealed = false;
+    for (const entry of state.pendingLogEntries) {
+        if (now >= entry.revealAt) {
+            state.revealedEvents.push(entry.ev);
+            revealed = true;
+        } else {
+            stillPending.push(entry);
+        }
+    }
+    state.pendingLogEntries = stillPending;
+    if (revealed) {
+        renderLog();
+    }
 }
 
 function processSnapshot(payload) {
     state.events = payload.recent_events || [];
+    state.revealedEvents = payload.recent_events || [];
+    state.pendingLogEntries = [];
     state.stats = payload.stats;
     state.config = {
         ...payload.config,
@@ -817,46 +852,11 @@ function renderLog() {
     const container = document.getElementById('log-entries');
     if (!container) return;
 
-    // Check if the user is scrolled to (or near) the bottom. If not,
-    // don't re-render — it would jolt their scroll position and cause
-    // the blank-flash issue. We'll re-render on the next tick where
-    // they ARE at the bottom, or when they manually change a filter.
-    const isNearBottom = (container.scrollTop + container.clientHeight) >= (container.scrollHeight - 50);
-    if (state.logUserScrolled && !isNearBottom) {
-        // Skip this render; the user is reading older entries.
-        state.pendingLogRender = true;
-        // Still update the count badge.
-        let count = state.events.length;
-        const f = state.filters;
-        if (f.agent || f.cipher || f.attack || f.outcome !== 'all') {
-            count = state.events.filter(e => {
-                if (f.agent) {
-                    if (e.kind === 'send') { if (!(e.sender === f.agent || e.target === f.agent)) return false; }
-                    else if (e.kind === 'intercepted' || e.kind === 'secure') { if (e.sender !== f.agent) return false; }
-                    else if (e.kind === 'skip') { if (e.attacker !== f.agent) return false; }
-                }
-                if (f.cipher && e.cipher !== f.cipher) return false;
-                if (f.attack && e.attack !== f.attack) return false;
-                if (f.outcome === 'success' && e.kind !== 'intercepted') return false;
-                if (f.outcome === 'failed' && e.kind !== 'secure') return false;
-                if (f.outcome === 'send' && e.kind !== 'send') return false;
-                return true;
-            }).length;
-        }
-        const countEl = document.getElementById('log-count');
-        if (countEl) countEl.textContent = count;
-        return;
-    }
-    state.logUserScrolled = false;
-    state.pendingLogRender = false;
-
-    let events = state.events.slice().reverse();
+    // Use revealedEvents (staggered) instead of all events.
+    let events = state.revealedEvents.slice().reverse();
 
     const f = state.filters;
     if (f.agent) {
-        // FIX: for survival (secure) and intercepted events, the agent filter
-        // should match the SENDER only (not the recipient/attacker). For send
-        // events, match sender or target. For skip, match attacker.
         events = events.filter(e => {
             if (e.kind === 'send') return e.sender === f.agent || e.target === f.agent;
             if (e.kind === 'intercepted' || e.kind === 'secure') return e.sender === f.agent;
@@ -870,16 +870,15 @@ function renderLog() {
     if (f.outcome === 'failed') events = events.filter(e => e.kind === 'secure');
     if (f.outcome === 'send') events = events.filter(e => e.kind === 'send');
 
-    // No display limit — show all matching events.
     const countEl = document.getElementById('log-count');
-    if (countEl) countEl.textContent = events.length;
+    if (countEl) countEl.textContent = state.revealedEvents.length;
 
     if (events.length === 0) {
         container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
         return;
     }
 
-    container.innerHTML = events.map((ev, idx) => {
+    container.innerHTML = events.map(ev => {
         let cls = 'log-entry ' + ev.kind;
         let icon = 'fa-message';
         if (ev.kind === 'send') icon = 'fa-paper-plane';
@@ -887,9 +886,7 @@ function renderLog() {
         else if (ev.kind === 'secure') icon = 'fa-shield-halved';
         else if (ev.kind === 'skip') icon = 'fa-forward';
 
-        // FIX: truncate to 37 chars so a 40-char backend preview gets "…" appended.
         const preview = truncate(ev.message_preview, 37);
-        // FIX: truncate the notes too.
         const notes = truncate(ev.notes, 50);
 
         return `
@@ -906,14 +903,17 @@ function renderLog() {
             </div>
         `;
     }).join('');
+
+    // Auto-scroll to bottom if user is near the bottom.
+    const isNearBottom = (container.scrollTop + container.clientHeight) >= (container.scrollHeight - 50);
+    if (isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 function togglePanel(id) { document.getElementById(id).classList.toggle('collapsed'); }
 function setFilter(key, val) {
     state.filters[key] = val;
-    // Force render when user manually changes a filter.
-    state.logUserScrolled = false;
-    state.pendingLogRender = false;
     renderLog();
 }
 
@@ -923,9 +923,6 @@ function clearFilters() {
     document.getElementById('filter-cipher').value = '';
     document.getElementById('filter-attack').value = '';
     document.getElementById('filter-outcome').value = 'all';
-    // Force render.
-    state.logUserScrolled = false;
-    state.pendingLogRender = false;
     renderLog();
 }
 
@@ -1143,21 +1140,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filter-cipher').onchange = e => setFilter('cipher', e.target.value);
     document.getElementById('filter-attack').onchange = e => setFilter('attack', e.target.value);
     document.getElementById('filter-outcome').onchange = e => setFilter('outcome', e.target.value);
-
-    // Track when the user scrolls up in the log panel — if they do,
-    // stop re-rendering on new ticks until they scroll back to bottom.
-    const logEntries = document.getElementById('log-entries');
-    if (logEntries) {
-        logEntries.addEventListener('scroll', () => {
-            const isNearBottom = (logEntries.scrollTop + logEntries.clientHeight) >= (logEntries.scrollHeight - 50);
-            if (!isNearBottom) {
-                state.logUserScrolled = true;
-            } else if (state.pendingLogRender) {
-                state.logUserScrolled = false;
-                renderLog();
-            }
-        });
-    }
 
     document.getElementById('phone-back').onclick = closePhone;
     document.getElementById('attacker-close').onclick = closeAttacker;
