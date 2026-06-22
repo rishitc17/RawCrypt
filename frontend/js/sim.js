@@ -71,14 +71,13 @@ function layoutAgents(explicitW, explicitH) {
     const totalAgents = comms.length + atks.length;
 
     // Scale the radius and agent size based on the number of agents.
-    // With few agents, use large circles on a big radius. With many
-    // agents (75+25=100), shrink everything to fit.
-    const baseR = Math.min(w, h) * 0.42;
-    const innerBaseR = Math.min(w, h) * 0.14;
-    // Shrink the outer ring as agent count grows.
-    const scale = totalAgents > 20 ? Math.max(0.5, 1 - (totalAgents - 20) * 0.01) : 1;
+    // Use most of the available space — bigger rings = more spread.
+    const baseR = Math.min(w, h) * 0.46;
+    const innerBaseR = Math.min(w, h) * 0.16;
+    // Shrink the outer ring only slightly as agent count grows.
+    const scale = totalAgents > 20 ? Math.max(0.6, 1 - (totalAgents - 20) * 0.008) : 1;
     const outerR = baseR * scale;
-    const innerR = innerBaseR * Math.max(0.7, scale);
+    const innerR = innerBaseR * Math.max(0.75, scale);
 
     comms.forEach((a, i) => {
         const angle = (i / Math.max(comms.length, 1)) * Math.PI * 2 - Math.PI / 2;
@@ -141,14 +140,15 @@ function rebuildAgents(stats) {
 
 const AGENT_RADIUS = 26;
 
-// Dynamic agent radius — shrinks as more agents are added.
+// Dynamic agent radius — shrinks as more agents are added, but bigger
+// than before so circles are more visible.
 function getAgentRadius() {
     const n = state.agents.length;
-    if (n <= 10) return 26;
-    if (n <= 20) return 20;
-    if (n <= 40) return 14;
-    if (n <= 70) return 10;
-    return 7;
+    if (n <= 10) return 32;
+    if (n <= 20) return 24;
+    if (n <= 40) return 17;
+    if (n <= 70) return 12;
+    return 8;
 }
 
 function render() {
@@ -307,7 +307,8 @@ function findAgent(name) { return state.agents.find(a => a.name === name); }
 // ---------------------------------------------------------------------------
 
 function processTick(payload) {
-    state.events = state.events.concat(payload.events || []).slice(-300);
+    // No cap — keep all events for the full log.
+    state.events = state.events.concat(payload.events || []);
 
     // Stagger animations: each event's animation starts after the previous.
     let stagger = 0;
@@ -841,14 +842,9 @@ function renderLog() {
     if (f.outcome === 'failed') events = events.filter(e => e.kind === 'secure');
     if (f.outcome === 'send') events = events.filter(e => e.kind === 'send');
 
-    // FIX: count total matching events BEFORE slicing (so the counter
-    // doesn't cap at 80).
-    const totalCount = events.length;
-    events = events.slice(0, 80);
-
-    // FIX: update the log count badge with the total matching count.
+    // No display limit — show all matching events.
     const countEl = document.getElementById('log-count');
-    if (countEl) countEl.textContent = totalCount;
+    if (countEl) countEl.textContent = events.length;
 
     if (events.length === 0) {
         container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
