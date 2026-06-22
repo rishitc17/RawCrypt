@@ -372,12 +372,15 @@ async function simStart() {
     if (state.stats && state.stats.tick === 0) {
         const cfg = readConfigFromControls();
         // Only reset if any setting differs from the current config.
-        const changed = JSON.stringify(cfg) !== JSON.stringify({
-            ...state.config,
-            tick_interval: state.config.tick_interval,
+        const currentCfg = {
+            num_communicators: state.config.num_communicators,
+            num_attackers: state.config.num_attackers,
+            attacker_temperature: state.config.attacker_temperature,
+            communicator_temperature: state.config.communicator_temperature,
+            tick_interval: 0.1,
             seed: state.config.seed || null,
-        });
-        if (changed) {
+        };
+        if (JSON.stringify(cfg) !== JSON.stringify(currentCfg)) {
             await apiPost('/api/sim/reset', cfg);
             state.config = {...state.config, ...cfg};
         }
@@ -394,14 +397,12 @@ async function simPause() {
 }
 
 function readConfigFromControls() {
-    const tier = document.getElementById('tick-speed')?.value || 'medium';
-    const interval = {low: 2.0, medium: 0.9, high: 0.3}[tier];
     return {
         num_communicators: parseInt(document.getElementById('num-comms').value),
         num_attackers: parseInt(document.getElementById('num-atks').value),
         attacker_temperature: parseFloat(document.getElementById('atk-temp').value),
         communicator_temperature: parseFloat(document.getElementById('comm-temp').value),
-        tick_interval: interval,
+        tick_interval: 0.1,  // backend runs as fast as possible
         seed: parseInt(document.getElementById('seed').value) || null,
     };
 }
@@ -437,7 +438,6 @@ function updateControlUI() {
         startBtn.style.display = 'inline-flex';
         pauseBtn.style.display = 'none';
     }
-    const ti = state.config.tick_interval || 0.9;
     document.getElementById('num-comms').value = state.config.num_communicators;
     document.getElementById('num-atks').value = state.config.num_attackers;
     document.getElementById('atk-temp').value = state.config.attacker_temperature;
@@ -447,21 +447,7 @@ function updateControlUI() {
     document.getElementById('atk-temp-val').textContent = state.config.attacker_temperature.toFixed(2);
     document.getElementById('comm-temp-val').textContent = state.config.communicator_temperature.toFixed(2);
 
-    // Tick speed: show as Low / Medium / High label.
-    const tickSelect = document.getElementById('tick-speed');
-    if (tickSelect) {
-        // Map tick_interval to speed tier.
-        let tier = 'medium';
-        if (ti >= 1.5) tier = 'low';
-        else if (ti <= 0.4) tier = 'high';
-        tickSelect.value = tier;
-        const tierLabel = {low: 'Low', medium: 'Medium', high: 'High'}[tier];
-        const tierVal = document.getElementById('tick-speed-val');
-        if (tierVal) tierVal.textContent = tierLabel;
-    }
-
-    // Lock all reset-required sliders AND greediness/caution when tick > 0.
-    // Only tick speed stays live.
+    // Lock all reset-required sliders when tick > 0.
     const lockResetSliders = (state.stats && state.stats.tick > 0);
     ['num-comms', 'num-atks', 'seed', 'atk-temp', 'comm-temp'].forEach(id => {
         const el = document.getElementById(id);
@@ -1037,15 +1023,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await pauseOnChange();
         await apiPost('/api/sim/tune', {communicator_temperature: parseFloat(e.target.value)});
         state.config.communicator_temperature = parseFloat(e.target.value);
-    });
-
-    // Tick speed: Low / Medium / High — applies live, does NOT pause.
-    document.getElementById('tick-speed').addEventListener('change', async e => {
-        const interval = {low: 2.0, medium: 0.9, high: 0.3}[e.target.value];
-        await apiPost('/api/sim/tune', {tick_interval: interval});
-        state.config.tick_interval = interval;
-        const tierLabel = {low: 'Low', medium: 'Medium', high: 'High'}[e.target.value];
-        document.getElementById('tick-speed-val').textContent = tierLabel;
     });
 
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);

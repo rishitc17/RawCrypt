@@ -84,6 +84,9 @@ class SimManager:
 
     async def _loop(self):
         import time as _time
+        # Fixed minimum delay between ticks for safety (prevent CPU
+        # spin). The sim runs as fast as the backend can compute.
+        MIN_DELAY = 0.1
         while self.running:
             t0 = _time.monotonic()
             events = await asyncio.to_thread(self.sim.step)
@@ -93,12 +96,11 @@ class SimManager:
                 "events": [_event_to_dict(e) for e in events],
                 "stats": self._stats(),
             })
-            # Subtract the time spent computing + broadcasting from the
-            # sleep, so the total interval between ticks is consistent.
-            # If computation took longer than the interval, don't sleep
-            # at all (but yield once to let other coroutines run).
+            # Sleep for the minimum delay, minus any time already spent
+            # computing. If computation took longer than MIN_DELAY, just
+            # yield once to the event loop.
             elapsed = _time.monotonic() - t0
-            sleep_time = max(0, self.tick_interval - elapsed)
+            sleep_time = max(0.001, MIN_DELAY - elapsed)
             await asyncio.sleep(sleep_time)
 
     def _stats(self) -> dict:

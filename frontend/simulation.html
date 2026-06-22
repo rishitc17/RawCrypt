@@ -89,8 +89,7 @@
                     <div id="reset-hint" class="hint" style="background:var(--bg-panel-2);border-left:2px solid var(--border-strong);padding:6px 10px;border-radius:var(--radius-xs);margin-top:8px;font-size:0.72rem">
                         <i class="fa-solid fa-circle-info" style="color:var(--text-dim)"></i>
                         Communicators, Hackers, Greediness, Caution, and Seed need a Reset to apply.
-                    </div>
-                </div>
+                    </div>                </div>
 
                 <div class="control-group">
                     <div class="slider-row">
@@ -99,17 +98,17 @@
                             <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be sending messages. More agents = more traffic = more attacks.</span></span>
                             <span class="value" id="num-comms-val">4</span>
                         </div>
-                        <input type="range" id="num-comms" min="2" max="10" step="1" value="4">
-                        <div class="hint">2-10 agents</div>
+                        <input type="range" id="num-comms" min="2" max="75" step="1" value="4">
+                        <div class="hint">2-75 agents</div>
                     </div>
                     <div class="slider-row">
                         <div class="label-row">
                             Hackers
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be trying to break messages. More hackers = lower survival rate.</span></span>
+                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How many agents will be trying to break messages. More hackers = lower survival rate. Each hacker adds up to 1.5s per tick.</span></span>
                             <span class="value" id="num-atks-val">2</span>
                         </div>
-                        <input type="range" id="num-atks" min="1" max="5" step="1" value="2">
-                        <div class="hint">1-5 hackers</div>
+                        <input type="range" id="num-atks" min="1" max="25" step="1" value="2">
+                        <div class="hint">1-25 hackers</div>
                     </div>
                     <div class="slider-row">
                         <div class="label-row">
@@ -139,19 +138,6 @@
                         </div>
                         <input type="range" id="comm-temp" min="0.1" max="2.0" step="0.05" value="1.2">
                         <div class="hint">low = stick to the safest, high = experiment</div>
-                    </div>
-                    <div class="slider-row">
-                        <div class="label-row">
-                            Tick Speed
-                            <span class="tooltip"><i class="fa-solid fa-circle-info help"></i><span class="tooltip-text">How fast the simulation runs. Low = slow and easy to follow. High = as fast as the backend can keep up.</span></span>
-                            <span class="value" id="tick-speed-val">Medium</span>
-                        </div>
-                        <select id="tick-speed">
-                            <option value="low">Low</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="high">High</option>
-                        </select>
-                        <div class="hint">live — no pause needed</div>
                     </div>
                 </div>
             </div>
