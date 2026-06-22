@@ -543,8 +543,9 @@ function updateStatsPanels() {
     } else {
         cipherEl.innerHTML = cipherRows.map(c => {
             const color = cipherColorFor(c.name);
-            const breakColor = BROKEN_RED;
-            // The broken portion is shown as a red segment inside the usage bar.
+            // Striped overlay using a darkened Universal Red so the cipher's
+            // own colour shows through the transparent gaps.
+            const brokenStripe = stripePattern(darken(BROKEN_RED, 0.15));
             const brokenSegmentPct = c.usage_pct * (c.break_pct / 100);
             return `
                 <div class="usage-row tooltip">
@@ -552,7 +553,7 @@ function updateStatsPanels() {
                     <div class="bars">
                         <div class="bar-track" style="position:relative">
                             <div class="bar-fill" style="width:${c.usage_pct}%;background:${color};position:absolute;left:0;top:0"></div>
-                            <div class="bar-fill" style="width:${brokenSegmentPct}%;background:${breakColor};position:absolute;left:0;top:0;opacity:0.85"></div>
+                            <div class="bar-fill" style="width:${brokenSegmentPct}%;background:${brokenStripe};position:absolute;left:0;top:0"></div>
                         </div>
                     </div>
                     <span class="tooltip-text">
@@ -581,9 +582,10 @@ function updateStatsPanels() {
     } else {
         atkEl.innerHTML = atkRows.map(a => {
             const color = attackColorFor(a.name);
-            // Use a diagonal stripe pattern for the failure overlay so the
-            // attack's own colour stays visible even when failures dominate.
-            const failStripe = 'repeating-linear-gradient(45deg, #16A34A, #16A34A 4px, transparent 4px, transparent 8px)';
+            // Striped overlay using a darkened version of the attack's OWN
+            // colour, so each attack has a distinct failure stripe that
+            // contrasts with its base colour.
+            const failStripe = stripePattern(darken(color, 0.45));
             const failedSegmentPct = a.usage_pct * (a.fail_pct / 100);
             return `
                 <div class="usage-row tooltip">
@@ -629,6 +631,29 @@ function attackColorFor(slug) {
 }
 // Universal Red for the "broken" overlay on cipher usage bars.
 const BROKEN_RED = '#EF4444';
+
+/**
+ * Darken a hex colour by mixing it with black at the given ratio.
+ * Used to produce a stripe colour that reads clearly against the base.
+ */
+function darken(hex, ratio) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    const nr = Math.round(r * (1 - ratio));
+    const ng = Math.round(g * (1 - ratio));
+    const nb = Math.round(b * (1 - ratio));
+    return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Build a diagonal stripe pattern for an overlay.
+ * `stripeColor` is the stripe, the gaps are transparent so the base
+ * bar colour shows through.
+ */
+function stripePattern(stripeColor) {
+    return `repeating-linear-gradient(45deg, ${stripeColor}, ${stripeColor} 4px, transparent 4px, transparent 8px)`;
+}
 
 // ---------------------------------------------------------------------------
 // Agent roster — two tabs (Communicators / Hackers).
