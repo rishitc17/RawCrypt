@@ -70,10 +70,17 @@ function layoutAgents(explicitW, explicitH) {
     const atks = state.agents.filter(a => a.role === 'attacker');
     const totalAgents = comms.length + atks.length;
 
+    // Account for agent radius + label space when computing the ring
+    // radius, so the bottom-most agent's label doesn't clip.
+    const agentR = getAgentRadius();
+    const labelSpace = agentR >= 14 ? agentR + 20 : agentR + 6;
+    const usableH = h - 2 * labelSpace;
+    const usableW = w - 2 * labelSpace;
+
     // Scale the radius and agent size based on the number of agents.
     // Leave room at top/bottom for labels — don't fill the whole canvas.
-    const baseR = Math.min(w, h) * 0.42;
-    const innerBaseR = Math.min(w, h) * 0.15;
+    const baseR = Math.min(usableW, usableH) * 0.46;
+    const innerBaseR = Math.min(usableW, usableH) * 0.16;
     // Shrink the outer ring only slightly as agent count grows.
     const scale = totalAgents > 20 ? Math.max(0.6, 1 - (totalAgents - 20) * 0.008) : 1;
     const outerR = baseR * scale;
