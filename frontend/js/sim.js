@@ -935,7 +935,7 @@ function renderLog() {
                 ${ev.kind === 'send'
                     ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(preview)}"</span></span>`
                     : ev.kind === 'intercepted'
-                    ? `<span><b>${ev.attacker}</b> cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} with ${ev.attack ? attackTag(ev.attack) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
+                    ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
                     : ev.kind === 'secure'
                     ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
                     : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''}</span>`}
