@@ -147,14 +147,18 @@ function rebuildAgents(stats) {
 const AGENT_RADIUS = 26;
 
 // Dynamic agent radius — shrinks as more agents are added, but bigger
-// than before so circles are more visible.
+// than before so circles are more visible. Also considers canvas width
+// to prevent overlap on small/responsive screens.
 function getAgentRadius() {
     const n = state.agents.length;
-    if (n <= 10) return 32;
-    if (n <= 20) return 24;
-    if (n <= 40) return 17;
-    if (n <= 70) return 12;
-    return 8;
+    const w = canvas.offsetWidth || 600;
+    // On small screens, shrink more aggressively.
+    const smallScreen = w < 500;
+    if (n <= 10) return smallScreen ? 18 : 32;
+    if (n <= 20) return smallScreen ? 14 : 24;
+    if (n <= 40) return smallScreen ? 10 : 17;
+    if (n <= 70) return smallScreen ? 7 : 12;
+    return smallScreen ? 5 : 8;
 }
 
 function render() {
@@ -845,8 +849,21 @@ function updateAgentFilter() {
     const sel = document.getElementById('filter-agent');
     if (!sel) return;
     const current = sel.value;
-    sel.innerHTML = '<option value="">any</option>' +
-        state.agents.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+    // Build options with attackers visually distinguished.
+    const commNames = state.agents.filter(a => a.role === 'communicator').map(a => a.name);
+    const atkNames = state.agents.filter(a => a.role === 'attacker').map(a => a.name);
+    let html = '<option value="">any</option>';
+    if (commNames.length > 0) {
+        html += `<optgroup label="Communicators">`;
+        commNames.forEach(name => { html += `<option value="${name}">${name}</option>`; });
+        html += `</optgroup>`;
+    }
+    if (atkNames.length > 0) {
+        html += `<optgroup label="Hackers">`;
+        atkNames.forEach(name => { html += `<option value="${name}">${name}</option>`; });
+        html += `</optgroup>`;
+    }
+    sel.innerHTML = html;
     if (state.agents.some(a => a.name === current)) sel.value = current;
 }
 
@@ -868,11 +885,23 @@ function renderLog() {
 
     const f = state.filters;
     if (f.agent) {
+        // Check if the filtered agent is a communicator or an attacker.
+        const filteredAgent = state.agents.find(a => a.name === f.agent);
+        const isAttacker = filteredAgent && filteredAgent.role === 'attacker';
+
         events = events.filter(e => {
-            if (e.kind === 'send') return e.sender === f.agent || e.target === f.agent;
-            if (e.kind === 'intercepted' || e.kind === 'secure') return e.sender === f.agent;
-            if (e.kind === 'skip') return e.attacker === f.agent;
-            return false;
+            if (isAttacker) {
+                // For attackers: show all their attempts (intercepted, secure,
+                // skip) where they are the attacker.
+                return e.attacker === f.agent;
+            } else {
+                // For communicators: show only sends where they are the SENDER
+                // (not receiver), plus intercepted/secure events on messages
+                // THEY sent.
+                if (e.kind === 'send') return e.sender === f.agent;
+                if (e.kind === 'intercepted' || e.kind === 'secure') return e.sender === f.agent;
+                return false;
+            }
         });
     }
     if (f.cipher) events = events.filter(e => e.cipher === f.cipher);
