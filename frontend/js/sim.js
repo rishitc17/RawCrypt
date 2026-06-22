@@ -581,8 +581,9 @@ function updateStatsPanels() {
     } else {
         atkEl.innerHTML = atkRows.map(a => {
             const color = attackColorFor(a.name);
-            const failColor = '#16A34A';  // green for failure (survived messages)
-            // The failed portion is shown as a green segment inside the usage bar.
+            // Use a diagonal stripe pattern for the failure overlay so the
+            // attack's own colour stays visible even when failures dominate.
+            const failStripe = 'repeating-linear-gradient(45deg, #16A34A, #16A34A 4px, transparent 4px, transparent 8px)';
             const failedSegmentPct = a.usage_pct * (a.fail_pct / 100);
             return `
                 <div class="usage-row tooltip">
@@ -590,15 +591,13 @@ function updateStatsPanels() {
                     <div class="bars">
                         <div class="bar-track" style="position:relative">
                             <div class="bar-fill" style="width:${a.usage_pct}%;background:${color};position:absolute;left:0;top:0"></div>
-                            <div class="bar-fill" style="width:${failedSegmentPct}%;background:${failColor};position:absolute;left:0;top:0;opacity:0.85"></div>
+                            <div class="bar-fill" style="width:${failedSegmentPct}%;background:${failStripe};position:absolute;left:0;top:0"></div>
                         </div>
                     </div>
                     <span class="tooltip-text">
                         <div class="row"><span>Share of attacks</span><b>${a.usage_pct.toFixed(1)}%</b></div>
                         <div class="row"><span>Attempts</span><b>${a.used}</b></div>
-                        <div class="row"><span>Successes</span><b>${a.success}</b></div>
                         <div class="row"><span>Failures</span><b>${a.used - a.success}</b></div>
-                        <div class="row"><span>Success rate</span><b>${a.succ_pct.toFixed(1)}%</b></div>
                         <div class="row"><span>Failure rate</span><b>${a.fail_pct.toFixed(1)}%</b></div>
                     </span>
                 </div>
