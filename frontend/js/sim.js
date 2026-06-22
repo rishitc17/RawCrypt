@@ -849,17 +849,16 @@ function updateAgentFilter() {
     const sel = document.getElementById('filter-agent');
     if (!sel) return;
     const current = sel.value;
-    // Build options with attackers visually distinguished.
     const commNames = state.agents.filter(a => a.role === 'communicator').map(a => a.name);
     const atkNames = state.agents.filter(a => a.role === 'attacker').map(a => a.name);
     let html = '<option value="">any</option>';
     if (commNames.length > 0) {
-        html += `<optgroup label="Communicators">`;
+        html += `<optgroup label="Communicators" style="color:#10B981;font-weight:700">`;
         commNames.forEach(name => { html += `<option value="${name}">${name}</option>`; });
         html += `</optgroup>`;
     }
     if (atkNames.length > 0) {
-        html += `<optgroup label="Hackers">`;
+        html += `<optgroup label="Hackers" style="color:#DC2626;font-weight:700">`;
         atkNames.forEach(name => { html += `<option value="${name}">${name}</option>`; });
         html += `</optgroup>`;
     }

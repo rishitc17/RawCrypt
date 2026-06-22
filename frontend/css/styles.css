@@ -1995,6 +1995,9 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text-muted);
 }
 .log-filters select { width: auto; padding: 4px 8px; font-size: 0.82rem; }
+.log-filters optgroup[label="Communicators"] { color: #10B981; font-weight: 700; }
+.log-filters optgroup[label="Hackers"] { color: #DC2626; font-weight: 700; }
+.log-filters optgroup option { color: var(--text); font-weight: 400; }
 .log-entries {
     max-height: 340px;
     overflow-y: auto;
