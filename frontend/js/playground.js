@@ -186,7 +186,7 @@ function renderLfsrInput(container) {
                 ${[0,1,2,3].map(i => `
                     <div class="lfsr-cell">
                         <button class="lfsr-tap-btn ${lfsrState.taps.has(i) ? 'active' : ''}" onclick="toggleTap(${i})">Tap</button>
-                        <input type="text" class="lfsr-bit-input" maxlength="1" value="${lfsrState.bits[i]}" oninput="updateLfsrBit(${i}, this.value)" />
+                        <input type="text" class="lfsr-bit-input" maxlength="1" value="${lfsrState.bits[i]}" onfocus="this.select()" oninput="updateLfsrBit(${i}, this.value)" />
                         <div class="lfsr-cell-label">Bit ${i}</div>
                     </div>
                 `).join('')}
@@ -214,11 +214,16 @@ function toggleTap(i) {
 }
 
 function updateLfsrBit(i, val) {
-    val = (val || '0').substring(0, 1);
-    if (val !== '0' && val !== '1') val = '0';
+    // Only accept '0' or '1'; ignore anything else (don't overwrite
+    // with '0' on invalid input — just skip, so typing feels natural).
+    val = (val || '').trim();
+    if (val !== '0' && val !== '1') {
+        // Restore the previous valid value without disrupting the cursor.
+        const inputs = document.querySelectorAll('.lfsr-bit-input');
+        if (inputs[i]) inputs[i].value = lfsrState.bits[i];
+        return;
+    }
     lfsrState.bits[i] = val;
-    const inputs = document.querySelectorAll('.lfsr-bit-input');
-    if (inputs[i]) inputs[i].value = val;
     const fb = document.getElementById('lfsr-feedback-val');
     if (fb) fb.textContent = computeFeedback();
     syncLfsrKey();
@@ -235,7 +240,9 @@ function syncLfsrKey() {
     const seed = lfsrState.bits.join('');
     const taps = Array.from(lfsrState.taps).sort((a, b) => a - b);
     const hidden = document.getElementById('key-input');
-    if (hidden) hidden.value = JSON.stringify({seed, taps});
+    // Store as a JSON array [seed, taps] so the backend's _coerce_key
+    // can destructure it as: seed, taps = key
+    if (hidden) hidden.value = JSON.stringify([seed, taps]);
 }
 
 // ---------------------------------------------------------------------------
