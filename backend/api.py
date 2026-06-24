@@ -19,7 +19,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -207,7 +207,49 @@ def _event_to_dict(ev) -> dict:
     }
 
 
-sim_manager = SimManager()
+# ---------------------------------------------------------------------------
+# Session store — each browser tab gets its own SimManager.
+# ---------------------------------------------------------------------------
+
+class SessionStore:
+    """Maps session IDs to SimManager instances.
+
+    Each WebSocket connection creates a new session (or reconnects to an
+    existing one). REST endpoints look up the session by the X-Session-Id
+    header. Sessions are cleaned up 60 seconds after their WebSocket
+    disconnects.
+    """
+
+    def __init__(self):
+        self._sessions: dict[str, SimManager] = {}
+        self._cleanup_tasks: dict[str, asyncio.Task] = {}
+
+    def get_or_create(self, session_id: str) -> SimManager:
+        if session_id not in self._sessions:
+            self._sessions[session_id] = SimManager()
+        # Cancel any pending cleanup.
+        if session_id in self._cleanup_tasks:
+            self._cleanup_tasks[session_id].cancel()
+            del self._cleanup_tasks[session_id]
+        return self._sessions[session_id]
+
+    def get(self, session_id: str) -> Optional[SimManager]:
+        return self._sessions.get(session_id)
+
+    def schedule_cleanup(self, session_id: str):
+        """Schedule session destruction after 60s. Cancelled on reconnect."""
+        async def _cleanup():
+            await asyncio.sleep(60)
+            mgr = self._sessions.pop(session_id, None)
+            if mgr:
+                await mgr.pause()
+            self._cleanup_tasks.pop(session_id, None)
+        if session_id in self._cleanup_tasks:
+            self._cleanup_tasks[session_id].cancel()
+        self._cleanup_tasks[session_id] = asyncio.create_task(_cleanup())
+
+
+sessions = SessionStore()
 
 
 # ---------------------------------------------------------------------------
@@ -216,11 +258,11 @@ sim_manager = SimManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Do NOT auto-start the sim — let the user press Start.
-    # The sim_manager is created in the paused state already.
+    # Sessions are created on-demand when WebSocket clients connect.
     yield
-    # On shutdown, pause the background task.
-    await sim_manager.pause()
+    # On shutdown, pause all running sessions.
+    for mgr in sessions._sessions.values():
+        await mgr.pause()
 
 
 app = FastAPI(title="RawCrypt API", lifespan=lifespan)
@@ -298,21 +340,33 @@ class LiveTunable(BaseModel):
     tick_interval: Optional[float] = None
 
 
+def _get_session(request: Request) -> SimManager:
+    """Extract the session ID from the X-Session-Id header."""
+    session_id = request.headers.get("X-Session-Id", "")
+    mgr = sessions.get(session_id) if session_id else None
+    if mgr is None:
+        mgr = sessions.get_or_create(session_id or "default")
+    return mgr
+
+
 @app.post("/api/sim/start")
-async def sim_start():
-    await sim_manager.start()
+async def sim_start(request: Request):
+    mgr = _get_session(request)
+    await mgr.start()
     return {"running": True}
 
 
 @app.post("/api/sim/pause")
-async def sim_pause():
-    await sim_manager.pause()
+async def sim_pause(request: Request):
+    mgr = _get_session(request)
+    await mgr.pause()
     return {"running": False}
 
 
 @app.post("/api/sim/reset")
-async def sim_reset(cfg: SimConfig):
-    await sim_manager.reset(
+async def sim_reset(cfg: SimConfig, request: Request):
+    mgr = _get_session(request)
+    await mgr.reset(
         num_comms=cfg.num_communicators,
         num_atks=cfg.num_attackers,
         attacker_temp=cfg.attacker_temperature,
@@ -325,42 +379,51 @@ async def sim_reset(cfg: SimConfig):
 
 
 @app.post("/api/sim/tune")
-async def sim_tune(params: LiveTunable):
-    """Live-tune parameters without resetting the sim."""
+async def sim_tune(params: LiveTunable, request: Request):
+    mgr = _get_session(request)
     if params.attacker_temperature is not None:
-        sim_manager.set_attacker_temperature(params.attacker_temperature)
+        mgr.set_attacker_temperature(params.attacker_temperature)
     if params.communicator_temperature is not None:
-        sim_manager.set_communicator_temperature(params.communicator_temperature)
+        mgr.set_communicator_temperature(params.communicator_temperature)
     if params.tick_interval is not None:
-        sim_manager.set_tick_interval(params.tick_interval)
+        mgr.set_tick_interval(params.tick_interval)
     return {"ok": True,
-            "attacker_temperature": sim_manager.sim.attacker_temperature,
-            "communicator_temperature": sim_manager.sim.communicator_temperature,
-            "tick_interval": sim_manager.tick_interval}
+            "attacker_temperature": mgr.sim.attacker_temperature,
+            "communicator_temperature": mgr.sim.communicator_temperature,
+            "tick_interval": mgr.tick_interval}
 
 
 @app.get("/api/sim/state")
-async def sim_state():
-    return sim_manager._snapshot()
+async def sim_state(request: Request):
+    mgr = _get_session(request)
+    return mgr._snapshot()
 
 
 @app.get("/api/sim/agent/{name}/chat")
-async def agent_chat(name: str):
-    """WhatsApp-style chat history for a communicator."""
-    return sim_manager.sim.communicator_chat_history(name)
+async def agent_chat(name: str, request: Request):
+    mgr = _get_session(request)
+    return mgr.sim.communicator_chat_history(name)
 
 
 @app.get("/api/sim/agent/{name}/attacks")
-async def agent_attacks(name: str):
-    """Attacker observation log."""
-    return sim_manager.sim.attacker_observation_log(name)
+async def agent_attacks(name: str, request: Request):
+    mgr = _get_session(request)
+    return mgr.sim.attacker_observation_log(name)
 
 
 # --- WebSocket ------------------------------------------------------------
 
 @app.websocket("/ws/sim")
 async def ws_sim(ws: WebSocket):
-    await sim_manager.subscribe(ws)
+    # Session ID is passed as a query parameter: /ws/sim?session=ABC123
+    session_id = ws.query_params.get("session", "")
+    if not session_id:
+        await ws.close(code=1008, reason="Missing session ID")
+        return
+    mgr = sessions.get_or_create(session_id)
+    await mgr.subscribe(ws)
+    # On disconnect, schedule cleanup.
+    sessions.schedule_cleanup(session_id)
 
 
 # --- Cipher playground ----------------------------------------------------

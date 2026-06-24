@@ -140,8 +140,19 @@ function initials(name) {
 // ---------------------------------------------------------------------------
 
 const BACKEND_URL = window.location.hostname === 'rishitc17.github.io'
-    ? 'https://rawcrypt.onrender.com'  // ← replace with your Render URL
-    : '';  // same-origin (localhost or single-host deployment)
+    ? 'https://rawcrypt.onrender.com'
+    : '';
+
+// Per-tab session ID — each browser tab gets its own simulation.
+// Stored in sessionStorage (not localStorage) so each tab is independent.
+function getSessionId() {
+    let sid = sessionStorage.getItem('rawcrypt-session-id');
+    if (!sid) {
+        sid = 's-' + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
+        sessionStorage.setItem('rawcrypt-session-id', sid);
+    }
+    return sid;
+}
 
 // ---------------------------------------------------------------------------
 // WebSocket URL helper.
@@ -150,7 +161,8 @@ const BACKEND_URL = window.location.hostname === 'rishitc17.github.io'
 function wsUrl(path) {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = BACKEND_URL ? BACKEND_URL.replace(/^https?:/, proto) : `${proto}//${window.location.host}`;
-    return `${host}${path}`;
+    const sep = path.includes('?') ? '&' : '?';
+    return `${host}${path}${sep}session=${getSessionId()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,14 +170,19 @@ function wsUrl(path) {
 // ---------------------------------------------------------------------------
 
 async function apiGet(path) {
-    const r = await fetch(`${BACKEND_URL}${path}`);
+    const r = await fetch(`${BACKEND_URL}${path}`, {
+        headers: { 'X-Session-Id': getSessionId() },
+    });
     if (!r.ok) throw new Error(`${path}: ${r.status}`);
     return r.json();
 }
 async function apiPost(path, body) {
     const r = await fetch(`${BACKEND_URL}${path}`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Session-Id': getSessionId(),
+        },
         body: JSON.stringify(body),
     });
     return r.json();
