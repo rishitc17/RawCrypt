@@ -1179,12 +1179,7 @@ function buildStrategyPanel(agent) {
     const colorFn = isAttacker ? attackColorFor : cipherColorFor;
     const nameFn = isAttacker ? attackName : cipherName;
 
-    // Build a pie chart using canvas.
-    const canvasId = 'strategy-pie-' + agent.name.replace(/[^a-zA-Z0-9]/g, '');
-    const size = 120;
     const total = actions.reduce((sum, [, prob]) => sum + prob, 0) || 1;
-
-    // Draw the pie chart segments.
     let cumAngle = -Math.PI / 2;
     const segments = actions.map(([slug, prob]) => {
         const angle = (prob / total) * Math.PI * 2;
@@ -1195,6 +1190,29 @@ function buildStrategyPanel(agent) {
         cumAngle += angle;
         return seg;
     });
+
+    // Draw the pie chart to an off-screen canvas, then convert to a
+    // data URL so it survives innerHTML replacements (unlike a live
+    // canvas element which gets destroyed on every re-render).
+    const size = 120;
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = size;
+    offCanvas.height = size;
+    const octx = offCanvas.getContext('2d');
+    const cx = size / 2, cy = size / 2, r = size / 2 - 2;
+    const borderColor = currentThemeIsDark() ? '#1a1815' : '#faf6ef';
+    for (const seg of segments) {
+        octx.beginPath();
+        octx.moveTo(cx, cy);
+        octx.arc(cx, cy, r, seg.startAngle, seg.endAngle);
+        octx.closePath();
+        octx.fillStyle = seg.color;
+        octx.fill();
+        octx.strokeStyle = borderColor;
+        octx.lineWidth = 1.5;
+        octx.stroke();
+    }
+    const pieDataUrl = offCanvas.toDataURL('image/png');
 
     // Build legend items.
     const legendItems = segments.map(seg => {
@@ -1214,7 +1232,7 @@ function buildStrategyPanel(agent) {
                 <i class="fa-solid ${icon}" style="color:var(--accent)"></i> ${label}
             </div>
             <div style="display:flex;gap:12px;align-items:center">
-                <canvas id="${canvasId}" width="${size}" height="${size}" style="flex-shrink:0"></canvas>
+                <img src="${pieDataUrl}" width="${size}" height="${size}" style="flex-shrink:0" alt="Strategy pie chart">
                 <div style="flex:1">${legendItems}</div>
             </div>
         </div>
@@ -1222,33 +1240,9 @@ function buildStrategyPanel(agent) {
 }
 
 function drawStrategyPie(agent) {
-    const canvasId = 'strategy-pie-' + agent.name.replace(/[^a-zA-Z0-9]/g, '');
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const size = canvas.width;
-    const cx = size / 2, cy = size / 2, r = size / 2 - 2;
-
-    const actions = agent.topActions || [];
-    const isAttacker = agent.role === 'attacker';
-    const colorFn = isAttacker ? attackColorFor : cipherColorFor;
-    const total = actions.reduce((sum, [, prob]) => sum + prob, 0) || 1;
-
-    let cumAngle = -Math.PI / 2;
-    const borderColor = currentThemeIsDark() ? '#1a1815' : '#faf6ef';
-    for (const [slug, prob] of actions) {
-        const angle = (prob / total) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, r, cumAngle, cumAngle + angle);
-        ctx.closePath();
-        ctx.fillStyle = colorFn(slug);
-        ctx.fill();
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        cumAngle += angle;
-    }
+    // No longer needed — the pie chart is now an inline data URL image
+    // that survives innerHTML replacements. Kept as a no-op for any
+    // remaining call sites.
 }
 
 async function refreshPhone() {
