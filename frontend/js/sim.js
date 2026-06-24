@@ -492,31 +492,42 @@ function setupNavigationPause() {
 // ---------------------------------------------------------------------------
 
 function loadConfigFromUrl() {
+    // Try URL hash first, then localStorage, then defaults.
     const hash = window.location.hash.slice(1);
-    if (!hash) return;
-    const params = new URLSearchParams(hash);
-    const comms = parseInt(params.get('comms'));
-    const atks = parseInt(params.get('atks'));
-    const seed = parseInt(params.get('seed'));
-    const atkTemp = parseFloat(params.get('atkTemp'));
-    const commTemp = parseFloat(params.get('commTemp'));
-    const budget = parseFloat(params.get('budget'));
+    let cfg = null;
+    if (hash) {
+        const params = new URLSearchParams(hash);
+        cfg = {
+            comms: parseInt(params.get('comms')) || 4,
+            atks: parseInt(params.get('atks')) || 2,
+            seed: parseInt(params.get('seed')) || null,
+            atkTemp: parseFloat(params.get('atkTemp')) || 1.0,
+            commTemp: parseFloat(params.get('commTemp')) || 1.2,
+            budget: parseFloat(params.get('budget')) || 1.5,
+        };
+    } else {
+        const stored = localStorage.getItem('rawcrypt-sim-config');
+        if (stored) {
+            try { cfg = JSON.parse(stored); } catch(e) {}
+        }
+    }
+    if (!cfg) {
+        // No config found — set defaults in URL.
+        updateShareUrl();
+        return;
+    }
+    applyConfigToControls(cfg);
+    // Always update URL to reflect the loaded config.
+    updateShareUrl();
+}
 
-    if (comms) document.getElementById('num-comms').value = comms;
-    if (atks) document.getElementById('num-atks').value = atks;
-    if (seed) document.getElementById('seed').value = seed;
-    if (atkTemp) document.getElementById('atk-temp').value = atkTemp;
-    if (commTemp) document.getElementById('comm-temp').value = commTemp;
-    if (budget) document.getElementById('attack-budget').value = budget;
-
-    // Update the displayed values.
-    document.getElementById('num-comms-val').textContent = comms || 4;
-    document.getElementById('num-atks-val').textContent = atks || 2;
-    document.getElementById('atk-temp-val').textContent = (atkTemp || 1.0).toFixed(2);
-    document.getElementById('comm-temp-val').textContent = (commTemp || 1.2).toFixed(2);
-    document.getElementById('attack-budget-val').textContent = (budget || 1.5).toFixed(1) + 's';
-
-    // Preview agents with the loaded config.
+function applyConfigToControls(cfg) {
+    if (cfg.comms) { document.getElementById('num-comms').value = cfg.comms; document.getElementById('num-comms-val').textContent = cfg.comms; }
+    if (cfg.atks) { document.getElementById('num-atks').value = cfg.atks; document.getElementById('num-atks-val').textContent = cfg.atks; }
+    if (cfg.seed) document.getElementById('seed').value = cfg.seed;
+    if (cfg.atkTemp) { document.getElementById('atk-temp').value = cfg.atkTemp; document.getElementById('atk-temp-val').textContent = cfg.atkTemp.toFixed(2); }
+    if (cfg.commTemp) { document.getElementById('comm-temp').value = cfg.commTemp; document.getElementById('comm-temp-val').textContent = cfg.commTemp.toFixed(2); }
+    if (cfg.budget) { document.getElementById('attack-budget').value = cfg.budget; document.getElementById('attack-budget-val').textContent = cfg.budget.toFixed(1) + 's'; }
     previewAgents();
 }
 
@@ -530,6 +541,36 @@ function updateShareUrl() {
     params.set('commTemp', cfg.communicator_temperature);
     params.set('budget', cfg.attack_budget);
     window.history.replaceState(null, '', '/simulation#' + params.toString());
+
+    // Also persist to localStorage so the config survives navigation
+    // to other pages and back.
+    localStorage.setItem('rawcrypt-sim-config', JSON.stringify({
+        comms: cfg.num_communicators,
+        atks: cfg.num_attackers,
+        seed: cfg.seed,
+        atkTemp: cfg.attacker_temperature,
+        commTemp: cfg.communicator_temperature,
+        budget: cfg.attack_budget,
+    }));
+}
+
+function shareSimulation() {
+    // Copy the current URL to clipboard.
+    navigator.clipboard.writeText(window.location.href).then(() => {
+        // Brief visual feedback on the share button.
+        const btn = document.getElementById('btn-share');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            btn.style.background = 'var(--success)';
+            btn.style.color = 'var(--accent-text)';
+            setTimeout(() => {
+                btn.innerHTML = original;
+                btn.style.background = '';
+                btn.style.color = '';
+            }, 2000);
+        }
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -560,6 +601,7 @@ async function simStart() {
     await apiPost('/api/sim/start', {});
     state.running = true;
     state.simStarted = true;
+    updateShareUrl();
     updateControlUI();
 }
 
@@ -591,6 +633,8 @@ async function simReset() {
     state.animations = [];
     state.pendingAnimations = [];
     state.simStarted = false;
+    state._lastFilterKey = '';
+    state._lastRenderedCount = 0;
     updateShareUrl();
     renderRoster();
     renderLog();
@@ -693,10 +737,11 @@ function updateStatsPanels() {
     if (!state.stats) return;
     const s = state.stats;
 
-    document.getElementById('stat-tick').textContent = s.summary.tick;
-    document.getElementById('stat-messages').textContent = s.summary.total_messages;
-    document.getElementById('stat-survival').textContent = s.summary.overall_survival_pct.toFixed(0) + '%';
-    document.getElementById('stat-ciphers').textContent = s.summary.distinct_ciphers_used;
+    // A2: Animated stat counters — tween from old to new value.
+    tweenStat('stat-tick', s.summary.tick);
+    tweenStat('stat-messages', s.summary.total_messages);
+    tweenStat('stat-survival', s.summary.overall_survival_pct);
+    tweenStat('stat-ciphers', s.summary.distinct_ciphers_used);
 
     // Cipher usage — single bar showing % of traffic, with red broken overlay
     const cipherRows = (s.cipher_usage || [])
@@ -928,32 +973,72 @@ function truncate(s, n) {
     return s.length > n ? s.slice(0, n) + '\u2026' : s;
 }
 
+// Track what was last rendered for incremental updates.
+state._lastFilterKey = '';
+state._lastRenderedCount = 0;
+
 function renderLog() {
     const container = document.getElementById('log-entries');
     if (!container) return;
 
-    // Use revealedEvents (staggered) instead of all events.
+    const f = state.filters;
+    const filterKey = `${f.agent}|${f.cipher}|${f.attack}|${f.outcome}`;
+    const filtersChanged = filterKey !== state._lastFilterKey;
+
+    // Update the count badge.
+    const countEl = document.getElementById('log-count');
+    if (countEl) countEl.textContent = state.revealedEvents.length;
+
+    if (filtersChanged) {
+        // Full rebuild when filters change.
+        state._lastFilterKey = filterKey;
+        state._lastRenderedCount = 0;
+        return fullRenderLog(container);
+    }
+
+    // Incremental: only prepend newly revealed entries.
+    const newCount = state.revealedEvents.length;
+    if (newCount <= state._lastRenderedCount) return; // nothing new
+
+    // Find the new entries (they were appended to revealedEvents, so
+    // they're at the END of the array — but in the DOM they go at the
+    // TOP since we display newest-first via reverse()).
+    const newEntries = state.revealedEvents.slice(state._lastRenderedCount);
+    state._lastRenderedCount = newCount;
+
+    // Remove the empty-state message if present.
+    const emptyState = container.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    // Prepend new entries (they need to go at the top since the log
+    // is newest-first). Insert before the first child.
+    const wasNearBottom = (container.scrollTop + container.clientHeight) >= (container.scrollHeight - 50);
+
+    for (const ev of newEntries) {
+        const html = buildLogEntryHtml(ev);
+        if (html) {
+            container.insertAdjacentHTML('afterbegin', html);
+        }
+    }
+
+    // Auto-scroll to bottom if user was near the bottom.
+    if (wasNearBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function fullRenderLog(container) {
     let events = state.revealedEvents.slice().reverse();
 
     const f = state.filters;
     if (f.agent) {
-        // Check if the filtered agent is a communicator or an attacker.
         const filteredAgent = state.agents.find(a => a.name === f.agent);
         const isAttacker = filteredAgent && filteredAgent.role === 'attacker';
-
         events = events.filter(e => {
-            if (isAttacker) {
-                // For attackers: show all their attempts (intercepted, secure,
-                // skip) where they are the attacker.
-                return e.attacker === f.agent;
-            } else {
-                // For communicators: show only sends where they are the SENDER
-                // (not receiver), plus intercepted/secure events on messages
-                // THEY sent.
-                if (e.kind === 'send') return e.sender === f.agent;
-                if (e.kind === 'intercepted' || e.kind === 'secure') return e.sender === f.agent;
-                return false;
-            }
+            if (isAttacker) return e.attacker === f.agent;
+            if (e.kind === 'send') return e.sender === f.agent;
+            if (e.kind === 'intercepted' || e.kind === 'secure') return e.sender === f.agent;
+            return false;
         });
     }
     if (f.cipher) events = events.filter(e => e.cipher === f.cipher);
@@ -962,50 +1047,90 @@ function renderLog() {
     if (f.outcome === 'failed') events = events.filter(e => e.kind === 'secure');
     if (f.outcome === 'send') events = events.filter(e => e.kind === 'send');
 
-    const countEl = document.getElementById('log-count');
-    if (countEl) countEl.textContent = state.revealedEvents.length;
+    state._lastRenderedCount = state.revealedEvents.length;
 
     if (events.length === 0) {
         container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-inbox"></i><div>No events match the filters.</div></div>';
         return;
     }
 
-    container.innerHTML = events.map(ev => {
-        let cls = 'log-entry ' + ev.kind;
-        let icon = 'fa-message';
-        if (ev.kind === 'send') icon = 'fa-paper-plane';
-        else if (ev.kind === 'intercepted') icon = 'fa-skull-crossbones';
-        else if (ev.kind === 'secure') icon = 'fa-shield-halved';
-        else if (ev.kind === 'skip') icon = 'fa-forward';
+    container.innerHTML = events.map(buildLogEntryHtml).join('');
 
-        const preview = truncate(ev.message_preview, 37);
-        const notes = truncate(ev.notes, 50);
-
-        return `
-            <div class="${cls}">
-                <span class="tick">T${ev.tick}</span>
-                <i class="fa-solid ${icon}" style="width:14px;color:var(--text-muted)"></i>
-                ${ev.kind === 'send'
-                    ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(preview)}"</span></span>`
-                    : ev.kind === 'intercepted'
-                    ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
-                    : ev.kind === 'secure'
-                    ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
-                    : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''}</span>`}
-            </div>
-        `;
-    }).join('');
-
-    // Auto-scroll to bottom if user is near the bottom.
     const isNearBottom = (container.scrollTop + container.clientHeight) >= (container.scrollHeight - 50);
     if (isNearBottom) {
         container.scrollTop = container.scrollHeight;
     }
 }
 
+function buildLogEntryHtml(ev) {
+    let cls = 'log-entry ' + ev.kind;
+    let icon = 'fa-message';
+    if (ev.kind === 'send') icon = 'fa-paper-plane';
+    else if (ev.kind === 'intercepted') icon = 'fa-skull-crossbones';
+    else if (ev.kind === 'secure') icon = 'fa-shield-halved';
+    else if (ev.kind === 'skip') icon = 'fa-forward';
+
+    const preview = truncate(ev.message_preview, 37);
+    const notes = truncate(ev.notes, 50);
+
+    return `
+        <div class="${cls}">
+            <span class="tick">T${ev.tick}</span>
+            <i class="fa-solid ${icon}" style="width:14px;color:var(--text-muted)"></i>
+            ${ev.kind === 'send'
+                ? `<span><b>${ev.sender}</b> <i class="fa-solid fa-arrow-right" style="color:var(--text-dim);font-size:0.7rem"></i> <b>${ev.target}</b> ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">"${escapeHtml(preview)}"</span></span>`
+                : ev.kind === 'intercepted'
+                ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} cracked <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
+                : ev.kind === 'secure'
+                ? `<span><b>${ev.attacker}</b>'s ${ev.attack ? attackTag(ev.attack) : ''} failed on <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''} <span class="text-muted">(${escapeHtml(notes)})</span></span>`
+                : `<span><b>${ev.attacker}</b> skipped <b>${ev.sender}</b>'s ${ev.cipher ? cipherTag(ev.cipher) : ''}</span>`}
+        </div>
+    `;
+}
+
+// A2: Animated stat counters — tween from old value to new value.
+const _statTweens = {};
+function tweenStat(elId, newVal) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const oldVal = _statTweens[elId] || 0;
+    const target = typeof newVal === 'string' ? parseFloat(newVal) : newVal;
+    if (oldVal === target) return;
+
+    // Cancel any running tween.
+    if (_statTweens[elId + '_raf']) cancelAnimationFrame(_statTweens[elId + '_raf']);
+
+    const startTime = performance.now();
+    const duration = 400;
+
+    function step() {
+        const elapsed = performance.now() - startTime;
+        const t = Math.min(1, elapsed / duration);
+        // Ease-out cubic.
+        const eased = 1 - Math.pow(1 - t, 3);
+        const current = oldVal + (target - oldVal) * eased;
+
+        if (elId === 'stat-survival') {
+            el.textContent = Math.round(current) + '%';
+        } else {
+            el.textContent = Math.round(current);
+        }
+
+        if (t < 1) {
+            _statTweens[elId + '_raf'] = requestAnimationFrame(step);
+        } else {
+            _statTweens[elId] = target;
+            _statTweens[elId + '_raf'] = null;
+        }
+    }
+    step();
+}
+
 function togglePanel(id) { document.getElementById(id).classList.toggle('collapsed'); }
 function setFilter(key, val) {
     state.filters[key] = val;
+    // Force full rebuild on filter change.
+    state._lastFilterKey = '';
     renderLog();
 }
 
@@ -1015,6 +1140,8 @@ function clearFilters() {
     document.getElementById('filter-cipher').value = '';
     document.getElementById('filter-attack').value = '';
     document.getElementById('filter-outcome').value = 'all';
+    // Force full rebuild.
+    state._lastFilterKey = '';
     renderLog();
 }
 
@@ -1238,13 +1365,27 @@ document.addEventListener('DOMContentLoaded', () => {
     connect();
     setupNavigationPause();
 
-    // S1: Load config from URL hash if present (e.g.
-    // /simulation#comms=10&atks=5&seed=42&atkTemp=1.0&commTemp=1.2&budget=1.5)
-    loadConfigFromUrl();
+    // S1: Load config from URL hash OR localStorage (persists across pages).
+    // URL hash takes priority; if no hash, check localStorage; if neither,
+    // set the default URL.
+    if (window.location.hash.length > 1) {
+        loadConfigFromUrl();
+    } else {
+        const saved = localStorage.getItem('rawcrypt-sim-config');
+        if (saved) {
+            try {
+                const cfg = JSON.parse(saved);
+                applyConfigToControls(cfg);
+            } catch(e) {}
+        }
+    }
+    // Always set the URL to reflect current controls.
+    updateShareUrl();
 
     document.getElementById('btn-start').onclick = simStart;
     document.getElementById('btn-pause').onclick = simPause;
     document.getElementById('btn-reset').onclick = simReset;
+    document.getElementById('btn-share').onclick = shareSimulation;
 
     // Reset-required sliders: lock at tick > 0, preview agents at tick 0.
     ['num-comms', 'num-atks'].forEach(id => {
@@ -1252,12 +1393,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (id === 'num-comms') document.getElementById('num-comms-val').textContent = e.target.value;
             if (id === 'num-atks') document.getElementById('num-atks-val').textContent = e.target.value;
             previewAgents();
+            updateShareUrl();
         });
     });
 
     // Greediness + Caution: live-preview the value, apply on change (which pauses).
     document.getElementById('atk-temp').addEventListener('input', e => {
         document.getElementById('atk-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
+        updateShareUrl();
     });
     document.getElementById('atk-temp').addEventListener('change', async e => {
         await pauseOnChange();
@@ -1266,6 +1409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('comm-temp').addEventListener('input', e => {
         document.getElementById('comm-temp-val').textContent = parseFloat(e.target.value).toFixed(2);
+        updateShareUrl();
     });
     document.getElementById('comm-temp').addEventListener('change', async e => {
         await pauseOnChange();
@@ -1276,6 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Attack budget: live-preview value, apply on Reset.
     document.getElementById('attack-budget').addEventListener('input', e => {
         document.getElementById('attack-budget-val').textContent = parseFloat(e.target.value).toFixed(1) + 's';
+        updateShareUrl();
     });
 
     document.getElementById('filter-agent').onchange = e => setFilter('agent', e.target.value);

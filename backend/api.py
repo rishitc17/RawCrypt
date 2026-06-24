@@ -124,14 +124,14 @@ class SimManager:
                 {"name": c.name,
                  "sent": s.communicator_sent.get(c.name, 0),
                  "broken": s.communicator_broken.get(c.name, 0),
-                 "top_actions": c.strategy.top_actions(k=4)}
+                 "top_actions": c.strategy.top_actions(k=20)}
                 for c in s.communicators
             ],
             "attackers": [
                 {"name": a.name,
                  "attempts": s.attacker_attempts.get(a.name, 0),
                  "success": s.attacker_success.get(a.name, 0),
-                 "top_actions": a.strategy.top_actions(k=4)}
+                 "top_actions": a.strategy.top_actions(k=20)}
                 for a in s.attackers
             ],
             "summary": s.environment_summary(),
