@@ -818,6 +818,7 @@ function updateStatsPanels() {
                 </div>
             `;
         }).join('');
+        if (agent) drawStrategyPie(agent);
     }
 }
 
@@ -1089,17 +1090,26 @@ function buildLogEntryHtml(ev) {
 }
 
 // A2: Animated stat counters — tween from old value to new value.
+// Batches rapid updates: if a new target arrives mid-tween, the running
+// tween smoothly redirects to the new target instead of restarting.
 const _statTweens = {};
 function tweenStat(elId, newVal) {
     const el = document.getElementById(elId);
     if (!el) return;
-    const oldVal = _statTweens[elId] || 0;
     const target = typeof newVal === 'string' ? parseFloat(newVal) : newVal;
-    if (oldVal === target) return;
 
-    // Cancel any running tween.
-    if (_statTweens[elId + '_raf']) cancelAnimationFrame(_statTweens[elId + '_raf']);
+    // If there's a running tween, just update its target — don't restart.
+    // This prevents the "rapid cancel + restart" jitter when multiple
+    // updates arrive in the same tick.
+    if (_statTweens[elId + '_raf']) {
+        _statTweens[elId + '_target'] = target;
+        return;
+    }
 
+    const startVal = _statTweens[elId] || 0;
+    if (startVal === target) return;
+
+    _statTweens[elId + '_target'] = target;
     const startTime = performance.now();
     const duration = 400;
 
@@ -1108,7 +1118,8 @@ function tweenStat(elId, newVal) {
         const t = Math.min(1, elapsed / duration);
         // Ease-out cubic.
         const eased = 1 - Math.pow(1 - t, 3);
-        const current = oldVal + (target - oldVal) * eased;
+        const currentTarget = _statTweens[elId + '_target'];
+        const current = startVal + (currentTarget - startVal) * eased;
 
         if (elId === 'stat-survival') {
             el.textContent = Math.round(current) + '%';
@@ -1119,7 +1130,7 @@ function tweenStat(elId, newVal) {
         if (t < 1) {
             _statTweens[elId + '_raf'] = requestAnimationFrame(step);
         } else {
-            _statTweens[elId] = target;
+            _statTweens[elId] = currentTarget;
             _statTweens[elId + '_raf'] = null;
         }
     }
@@ -1169,17 +1180,31 @@ function buildStrategyPanel(agent) {
     const colorFn = isAttacker ? attackColorFor : cipherColorFor;
     const nameFn = isAttacker ? attackName : cipherName;
 
-    const bars = actions.map(([slug, prob]) => {
-        const pct = (prob * 100).toFixed(1);
-        const color = colorFn(slug);
-        const nm = nameFn(slug);
+    // Build a pie chart using canvas.
+    const canvasId = 'strategy-pie-' + agent.name.replace(/[^a-zA-Z0-9]/g, '');
+    const size = 120;
+    const total = actions.reduce((sum, [, prob]) => sum + prob, 0) || 1;
+
+    // Draw the pie chart segments.
+    let cumAngle = -Math.PI / 2;
+    const segments = actions.map(([slug, prob]) => {
+        const angle = (prob / total) * Math.PI * 2;
+        const seg = {
+            slug, prob, color: colorFn(slug), name: nameFn(slug),
+            startAngle: cumAngle, endAngle: cumAngle + angle,
+        };
+        cumAngle += angle;
+        return seg;
+    });
+
+    // Build legend items.
+    const legendItems = segments.map(seg => {
+        const pct = (seg.prob * 100).toFixed(1);
         return `
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                <span style="width:90px;font-size:0.78rem;font-weight:600;color:var(--text)">${nm}</span>
-                <div style="flex:1;height:10px;background:var(--bg-deep);border-radius:5px;overflow:hidden">
-                    <div style="width:${pct}%;height:100%;background:${color};border-radius:5px;transition:width 300ms"></div>
-                </div>
-                <span style="width:40px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted)">${pct}%</span>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${seg.color};flex-shrink:0"></span>
+                <span style="font-size:0.72rem;color:var(--text);min-width:70px">${seg.name}</span>
+                <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">${pct}%</span>
             </div>
         `;
     }).join('');
@@ -1189,9 +1214,42 @@ function buildStrategyPanel(agent) {
             <div style="font-family:var(--font-mono);font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px">
                 <i class="fa-solid ${icon}" style="color:var(--accent)"></i> ${label}
             </div>
-            ${bars}
+            <div style="display:flex;gap:12px;align-items:center">
+                <canvas id="${canvasId}" width="${size}" height="${size}" style="flex-shrink:0"></canvas>
+                <div style="flex:1">${legendItems}</div>
+            </div>
         </div>
     `;
+}
+
+function drawStrategyPie(agent) {
+    const canvasId = 'strategy-pie-' + agent.name.replace(/[^a-zA-Z0-9]/g, '');
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const size = canvas.width;
+    const cx = size / 2, cy = size / 2, r = size / 2 - 2;
+
+    const actions = agent.topActions || [];
+    const isAttacker = agent.role === 'attacker';
+    const colorFn = isAttacker ? attackColorFor : cipherColorFor;
+    const total = actions.reduce((sum, [, prob]) => sum + prob, 0) || 1;
+
+    let cumAngle = -Math.PI / 2;
+    const borderColor = currentThemeIsDark() ? '#1a1815' : '#faf6ef';
+    for (const [slug, prob] of actions) {
+        const angle = (prob / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, cumAngle, cumAngle + angle);
+        ctx.closePath();
+        ctx.fillStyle = colorFn(slug);
+        ctx.fill();
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        cumAngle += angle;
+    }
 }
 
 async function refreshPhone() {
@@ -1220,6 +1278,7 @@ async function refreshPhone() {
         const msgs = (data.contacts || {})[contact] || [];
         if (msgs.length === 0) {
             body.innerHTML = strategyHtml + '<div class="empty-state"><i class="fa-solid fa-comment-slash"></i><div>No messages yet.</div></div>';
+            if (agent) drawStrategyPie(agent);
             return;
         }
         let lastTick = -10;
@@ -1244,6 +1303,7 @@ async function refreshPhone() {
             `;
         }).join('');
         body.scrollTop = body.scrollHeight;
+        if (agent) drawStrategyPie(agent);
     } else {
         header.classList.remove('show-back');
         const agentObj = state.agents.find(a => a.name === name);
@@ -1255,6 +1315,7 @@ async function refreshPhone() {
         const contacts = Object.keys(data.contacts || {});
         if (contacts.length === 0) {
             body.innerHTML = strategyHtml + '<div class="empty-state"><i class="fa-solid fa-comments"></i><div>No messages yet.</div></div>';
+            if (agent) drawStrategyPie(agent);
             return;
         }
         body.innerHTML = strategyHtml + contacts.map(c => {
@@ -1307,6 +1368,7 @@ async function refreshAttackerPanel() {
     const attempts = data.attempts || [];
     if (attempts.length === 0) {
         body.innerHTML = strategyHtml + '<div class="empty-state"><i class="fa-solid fa-satellite-dish"></i><div>No attacks yet.</div></div>';
+        if (agent) drawStrategyPie(agent);
         return;
     }
     body.innerHTML = strategyHtml + attempts.slice().reverse().map(a => {
