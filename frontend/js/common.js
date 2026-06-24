@@ -133,12 +133,24 @@ function initials(name) {
 }
 
 // ---------------------------------------------------------------------------
+// Backend URL — configurable for split deployment.
+// When deployed together (e.g. locally or on Render alone), this is empty
+// and all requests are relative. When the frontend is on GitHub Pages and
+// the backend is on Render, set this to the Render URL.
+// ---------------------------------------------------------------------------
+
+const BACKEND_URL = window.location.hostname === 'rishitc17.github.io'
+    ? 'https://rawcrypt.onrender.com'  // ← replace with your Render URL
+    : '';  // same-origin (localhost or single-host deployment)
+
+// ---------------------------------------------------------------------------
 // WebSocket URL helper.
 // ---------------------------------------------------------------------------
 
 function wsUrl(path) {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${window.location.host}${path}`;
+    const host = BACKEND_URL ? BACKEND_URL.replace(/^https?:/, proto) : `${proto}//${window.location.host}`;
+    return `${host}${path}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,12 +158,12 @@ function wsUrl(path) {
 // ---------------------------------------------------------------------------
 
 async function apiGet(path) {
-    const r = await fetch(path);
+    const r = await fetch(`${BACKEND_URL}${path}`);
     if (!r.ok) throw new Error(`${path}: ${r.status}`);
     return r.json();
 }
 async function apiPost(path, body) {
-    const r = await fetch(path, {
+    const r = await fetch(`${BACKEND_URL}${path}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body),

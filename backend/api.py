@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -223,6 +224,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="RawCrypt API", lifespan=lifespan)
+
+# CORS — allow GitHub Pages frontend to talk to the Render backend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://rishitc17.github.io",  # GitHub Pages frontend
+        "http://localhost:8000",         # local dev
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")

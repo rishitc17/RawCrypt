@@ -1,0 +1,26 @@
+# Render deployment configuration
+# This file tells Render how to build and run the backend.
+
+[render]
+  # Render Blueprint — automatically detected by Render
+  # Create a new Web Service and connect this repo; Render will use this file.
+
+[[services]]
+  name = "rawcrypt-backend"
+  type = "web"
+
+  [services.build]
+    # Python 3.12 is available on Render's default image
+    command = "pip install -r requirements.txt"
+
+  [services.run]
+    # The backend serves the frontend too (for local testing),
+    # but in production the frontend is on GitHub Pages.
+    command = "uvicorn backend.api:app --host 0.0.0.0 --port $PORT"
+
+  [services.env]
+    PYTHON_VERSION = "3.12.13"
+
+  [services.health]
+    path = "/api/ciphers"
+    timeout = 30
