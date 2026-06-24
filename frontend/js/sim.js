@@ -818,7 +818,6 @@ function updateStatsPanels() {
                 </div>
             `;
         }).join('');
-        if (agent) drawStrategyPie(agent);
     }
 }
 
