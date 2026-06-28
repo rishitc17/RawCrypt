@@ -280,6 +280,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 @app.get("/.well-known/appspecific/com.chrome.devtools.json")
 async def chrome_devtools_wellknown():
